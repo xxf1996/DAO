@@ -17,21 +17,21 @@ interface WorkBaseInfo {
   links: LinkInfo[]
 }
 
-interface IframeWork extends WorkBaseInfo {
+export interface IframeWorkInfo extends WorkBaseInfo {
   type: 'iframe'
   url: string
 }
 
-interface ResourceWork extends WorkBaseInfo {
+export interface ResourceWorkInfo extends WorkBaseInfo {
   type: 'resource'
   css: string[]
   js: string[]
   html: string
 }
 
-interface SourceCodeWork extends WorkBaseInfo {
+export interface SourceCodeWorkInfo extends WorkBaseInfo {
   type: 'sourceCode'
   component: React.JSX.Element
 }
 
-export type WorkInfo = IframeWork | ResourceWork | SourceCodeWork
+export type WorkInfo = IframeWorkInfo | ResourceWorkInfo | SourceCodeWorkInfo
