@@ -21,8 +21,11 @@ const rouer = createBrowserRouter([
     async loader({ params }) {
       const work = find(works, { alias: params.alias })
       if (!work) {
+        document.title = '404'
         throw new Response(null, { status: 404 })
       }
+      // TODO: 适配国际化
+      document.title = work.name.zh
       return work
     },
     errorElement: <Page404 />
