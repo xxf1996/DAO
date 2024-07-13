@@ -4,10 +4,10 @@ import directionOfTheWind from './direction-of-the-wind'
 export const works: WorkInfo[] = [
   {
     type: 'iframe',
-    alias: 'test',
+    alias: 'eye-fires',
     name: {
-      en: 'test',
-      zh: '测试'
+      en: 'eyes like fire',
+      zh: '目光如炬'
     },
     desc: {
       en: 'test',
