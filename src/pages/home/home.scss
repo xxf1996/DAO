@@ -1,0 +1,56 @@
+$title-color: #ffffff5c;
+$quote-color: #ffffff9e;
+
+@mixin MaShanZheng {
+  font-family: "Ma Shan Zheng", cursive;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.home {
+  &__title {
+    @apply text-center my-4;
+    @include MaShanZheng;
+    font-size: 60px;
+    color: $title-color;
+  }
+
+  &__quote {
+    @apply text-center font-size-5 w-150 mx-auto;
+    @include MaShanZheng;
+    color: $quote-color;
+  }
+
+  &__works {
+    @apply mt-10 w-200 mx-auto grid grid-cols-4 gap-2;
+
+    $no-class: &+-no;
+
+    & a {
+      @include MaShanZheng;
+      @apply p-2 outline-none;
+      width: fit-content;
+      color: $title-color;
+      text-decoration: none;
+      border: 1px solid rgba(white, 0);
+      transition: color 0.3s ease-in-out, border-color 0.6s ease-in;
+
+      // :focus-visible伪类是tab键切换焦点时选中的状态（算是A11Y的一种）
+      &:hover, &:focus-visible {
+        color: rgba(white, 0.8);
+        // TODO: 最好给线框加上路径动画，即绕一圈画出线框来
+        border: 1px solid rgba(white, 0.8);
+
+        & #{$no-class} {
+          color: rgba(white, 0.5);
+        }
+      }
+    }
+
+    &-no {
+      @apply mr-2;
+      color: rgba(white, 0.2);
+      transition: color 0.3s ease-in-out;
+    }
+  }
+}

@@ -1,5 +1,7 @@
 import { useMultiLangText } from '@/hooks/text'
+import type { MultiLang } from '@/typings/work'
 import { works } from '@/works'
+import './home.scss'
 
 export interface HomeContainerProps {
   children?: React.ReactNode
@@ -15,17 +17,27 @@ function HomeContainer({ children }: HomeContainerProps) {
 
 function HomeWokrs() {
   return (
-    <div className="mt-6">
-      { works.map(work => <a key={work.alias} href={`/${work.alias}`}>{useMultiLangText(work.name)}</a>) }
+    <div className="home__works">
+      { works.map((work, idx) => (
+        <a key={work.alias} href={`/${work.alias}`}>
+          <span className="home__works-no">{(idx + 1).toString().padStart(3, '0')}</span>
+          {useMultiLangText(work.name)}
+        </a>
+      )) }
     </div>
   )
+}
+
+const title: MultiLang = {
+  zh: '道',
+  en: 'DAO'
 }
 
 function Home() {
   return (
     <HomeContainer>
-      <h1 className="text-center text-light-900">道</h1>
-      <div className="text-center font-size-6 w-150 mx-auto">
+      <h1 className="home__title">{useMultiLangText(title)}</h1>
+      <div className="home__quote">
         “道生一，一生二，二生三，三生万物”
         <p className="text-right">——《道德经》</p>
       </div>
