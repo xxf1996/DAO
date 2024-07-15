@@ -8,6 +8,38 @@ $quote-color: #ffffff9e;
 }
 
 .home {
+  &__container {
+    @apply h-screen w-screen bg-dark-900 px-6 py-4 box-border relative;
+  }
+
+  &__header {
+    @apply absolute left-0 top-0 w-full box-border py-2 px-6 flex items-center justify-end;
+
+    &-lang {
+      @apply flex items-center mr-4;
+      color: rgba(white, 0.1);
+      $active-color: rgba(white, 0.5);
+
+      &-btn {
+        @apply border-none outline-none bg-transparent cursor-pointer;
+        color: rgba(white, 0.2);
+        transition: color 0.3s ease-in-out;
+
+        &:hover {
+          color: $active-color;
+        }
+        &:focus-visible {
+          color: $active-color;
+          outline: 1px solid $active-color;
+        }
+      }
+
+      &-active {
+        color: $active-color;
+      }
+    }
+  }
+
   &__title {
     @apply text-center my-4;
     @include MaShanZheng;

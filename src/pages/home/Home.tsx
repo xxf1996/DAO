@@ -1,7 +1,8 @@
 import { useMultiLangText } from '@/hooks/text'
-import type { MultiLang } from '@/typings/work'
+import type { LangTypes, MultiLang } from '@/typings/work'
 import { works } from '@/works'
 import './home.scss'
+import { useLocalStorage } from 'react-use'
 
 export interface HomeContainerProps {
   children?: React.ReactNode
@@ -9,7 +10,7 @@ export interface HomeContainerProps {
 
 function HomeContainer({ children }: HomeContainerProps) {
   return (
-    <div className="h-screen w-screen bg-dark-900 px-6 py-4 box-border">
+    <div className="home__container">
       { children }
     </div>
   )
@@ -28,14 +29,30 @@ function HomeWokrs() {
   )
 }
 
+function HomeHeader() {
+  const [lang, setLang] = useLocalStorage<LangTypes>('dao-lang', 'zh')
+
+  return (
+    <div className="home__header">
+      <div className="home__header-lang">
+        <button className={`home__header-lang-btn ${lang === 'zh' ? 'home__header-lang-active' : ''}`} onClick={() => setLang('zh')}>中</button>
+        /
+        <button className={`home__header-lang-btn ${lang === 'en' ? 'home__header-lang-active' : ''}`} onClick={() => setLang('en')}>EN</button>
+      </div>
+    </div>
+  )
+}
+
 const title: MultiLang = {
   zh: '道',
   en: 'DAO'
 }
 
 function Home() {
+  // FIXME: useMultiLangText没有响应性
   return (
     <HomeContainer>
+      <HomeHeader />
       <h1 className="home__title">{useMultiLangText(title)}</h1>
       <div className="home__quote">
         “道生一，一生二，二生三，三生万物”

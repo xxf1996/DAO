@@ -4,6 +4,8 @@ interface MultiLang {
   en: string
 }
 
+export type LangTypes = keyof MultiLang
+
 interface LinkInfo {
   /** 链接名称 */
   name: MultiLang
