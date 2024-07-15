@@ -1,5 +1,5 @@
 import { useMultiLangText } from '@/hooks/text'
-import type { LangTypes, MultiLang } from '@/typings/work'
+import type { LangTypes, LinkInfo, MultiLang } from '@/typings/work'
 import { works } from '@/works'
 import './home.scss'
 import { useLocalStorage } from 'react-use'
@@ -38,6 +38,30 @@ function HomeHeader() {
         <button className={`home__header-lang-btn ${lang === 'zh' ? 'home__header-lang-active' : ''}`} onClick={() => setLang('zh')}>中</button>
         /
         <button className={`home__header-lang-btn ${lang === 'en' ? 'home__header-lang-active' : ''}`} onClick={() => setLang('en')}>EN</button>
+      </div>
+    </div>
+  )
+}
+
+const footerLinks: LinkInfo[] = [
+  {
+    name: {
+      en: 'Github',
+      zh: 'Github'
+    },
+    url: 'https://github.com/xxf1996'
+  }
+]
+
+function HomeFooter() {
+  return (
+    <div className="home__footer">
+      <div className="home__footer-links">
+        { footerLinks.map(link => (
+          <a key={link.url} target="_blank" href={link.url}>
+            {useMultiLangText(link.name)}
+          </a>
+        ))}
       </div>
     </div>
   )
