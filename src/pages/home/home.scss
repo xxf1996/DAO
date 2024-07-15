@@ -28,18 +28,39 @@ $quote-color: #ffffff9e;
 
     & a {
       @include MaShanZheng;
-      @apply p-2 outline-none;
+      @apply p-2 outline-none relative;
       width: fit-content;
       color: $title-color;
       text-decoration: none;
       border: 1px solid rgba(white, 0);
       transition: color 0.3s ease-in-out, border-color 0.6s ease-in;
 
+      // 基于两个矩形的尺寸变化完成线框动画
+      &::before {
+        @apply absolute box-border top-0 left-0 w-0 h-0 select-none pointer-events-none opacity-0;
+        content: '';
+        border: 1px solid rgba(white, 0);
+        border-top-color: rgba(white, 0.8);
+        border-left-color: rgba(white, 0.8);
+        transition: all 0.6s ease-in-out;
+      }
+
+      &::after {
+        @apply absolute box-border bottom-0 right-0 w-0 h-0 select-none pointer-events-none opacity-0;
+        content: '';
+        border: 1px solid rgba(white, 0);
+        border-bottom-color: rgba(white, 0.8);
+        border-right-color: rgba(white, 0.8);
+        transition: all 0.6s ease-in-out;
+      }
+
       // :focus-visible伪类是tab键切换焦点时选中的状态（算是A11Y的一种）
       &:hover, &:focus-visible {
         color: rgba(white, 0.8);
-        // TODO: 最好给线框加上路径动画，即绕一圈画出线框来
-        border: 1px solid rgba(white, 0.8);
+
+        &::before, &::after {
+          @apply opacity-100 w-full h-full;
+        }
 
         & #{$no-class} {
           color: rgba(white, 0.5);
