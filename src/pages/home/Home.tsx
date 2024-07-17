@@ -31,13 +31,17 @@ function HomeWokrs() {
 
 function HomeHeader() {
   const [lang, setLang] = useLocalStorage<LangTypes>('dao-lang', 'zh')
+  const toggleLang = (type: LangTypes) => {
+    setLang(type)
+    window.location.reload()
+  }
 
   return (
     <div className="home__header">
       <div className="home__header-lang">
-        <button className={`home__header-lang-btn ${lang === 'zh' ? 'home__header-lang-active' : ''}`} onClick={() => setLang('zh')}>中</button>
+        <button className={`home__header-lang-btn ${lang === 'zh' ? 'home__header-lang-active' : ''}`} onClick={() => toggleLang('zh')}>中</button>
         /
-        <button className={`home__header-lang-btn ${lang === 'en' ? 'home__header-lang-active' : ''}`} onClick={() => setLang('en')}>EN</button>
+        <button className={`home__header-lang-btn ${lang === 'en' ? 'home__header-lang-active' : ''}`} onClick={() => toggleLang('en')}>EN</button>
       </div>
     </div>
   )
@@ -77,7 +81,10 @@ function Home() {
   return (
     <HomeContainer>
       <HomeHeader />
-      <h1 className="home__title">{useMultiLangText(title)}</h1>
+      <h1 className="home__title">
+        {useMultiLangText(title)}
+        {/* <div className="i-carbon-home" /> */}
+      </h1>
       <div className="home__quote">
         “道生一，一生二，二生三，三生万物”
         <p className="text-right">——《道德经》</p>

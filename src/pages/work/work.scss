@@ -1,0 +1,35 @@
+.work {
+  &__container {
+    @apply w-screen h-screen relative overflow-hidden;
+  }
+
+  &__info {
+    @apply absolute right-0 bottom-0 max-h-full w-60 p-2;
+    background-color: rgba(black, 0.6);
+    backdrop-filter: blur(10px);
+    color: rgba(white, 0.7);
+    transition: height 0.3s ease-in-out;
+
+    &-header {
+      @apply flex items-center justify-between;
+    }
+
+    &-icon {
+      @apply inline-block;
+      width: 1em;
+      height: 1em;
+      color: rgba(white, 0.5);
+      transition: color 0.3s ease-in-out;
+
+      &:hover {
+        @apply cursor-pointer;
+        color: rgba(white, 0.8);
+      }
+    }
+
+    &-date {
+      @apply text-right mt-2 mb-0 text-gray-400 font-bold;
+      font-size: 12px;
+    }
+  }
+}
