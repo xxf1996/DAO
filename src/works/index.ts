@@ -16,7 +16,15 @@ export const works: WorkInfo[] = [
     url: 'https://xiexuefeng.cc/app/we/demo/eye-fires/',
     publicDate: '2022-01-01',
     tags: [],
-    links: []
+    links: [
+      {
+        name: {
+          en: 'Fires Shader',
+          zh: 'Fires Shader'
+        },
+        url: 'https://www.shadertoy.com/view/XsXSWS'
+      }
+    ]
   },
   directionOfTheWind
 ]

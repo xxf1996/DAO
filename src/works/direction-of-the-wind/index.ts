@@ -21,7 +21,15 @@ const work: ResourceWorkInfo = {
   styles: [],
   publicDate: '2022-01-01',
   tags: [],
-  links: []
+  links: [
+    {
+      name: {
+        en: 'p5.js',
+        zh: 'p5.js'
+      },
+      url: 'https://p5js.org/'
+    }
+  ]
 }
 
 export default work

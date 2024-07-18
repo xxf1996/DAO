@@ -10,7 +10,7 @@ import { RouterProvider, createBrowserRouter } from 'react-router-dom'
 import { find } from 'lodash-es'
 import { works } from './works'
 
-const rouer = createBrowserRouter([
+const router = createBrowserRouter([
   {
     path: '/',
     element: <Home />
@@ -34,7 +34,7 @@ const rouer = createBrowserRouter([
 
 ReactDOM.render(
   <React.StrictMode>
-    <RouterProvider router={rouer} />
+    <RouterProvider router={router} />
   </React.StrictMode>,
   document.getElementById('root')
 )

@@ -1,3 +1,5 @@
+@import "@/styles/_font.scss";
+
 .work {
   &__container {
     @apply w-screen h-screen relative overflow-hidden;
@@ -11,7 +13,12 @@
     transition: height 0.3s ease-in-out;
 
     &-header {
-      @apply flex items-center justify-between;
+      @apply flex items-center justify-between gap-2;
+    }
+
+    &-title {
+      @apply flex-1 text-center;
+      @include MaShanZheng;
     }
 
     &-icon {
@@ -30,6 +37,39 @@
     &-date {
       @apply text-right mt-2 mb-0 text-gray-400 font-bold;
       font-size: 12px;
+    }
+
+    &-content {
+      font-size: 14px;
+    }
+
+    &-link {
+      @apply flex items-center gap-1 text-orange-700;
+      width: fit-content;
+      text-decoration: none;
+      transition: color 0.3s ease-in-out;
+
+      &:hover {
+        @apply text-orange-500;
+      }
+    }
+
+    $maximized: &+-maximized;
+
+    &-maximized {
+      @apply hidden;
+    }
+
+    &-minimized {
+      @apply w-auto flex items-center justify-center;
+
+      & > :not(#{$maximized}) {
+        @apply hidden;
+      }
+
+      & > #{$maximized} {
+        @apply inline-block;
+      }
     }
   }
 }

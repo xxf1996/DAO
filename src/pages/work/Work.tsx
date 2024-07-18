@@ -20,16 +20,22 @@ const publish: MultiLang = {
 
 function WorkInfoDisplay({ work }: WorkInfoDisplayProps) {
   const [collapsed, setCollapsed] = useState(true)
+  const [minimized, setMinimized] = useState(false)
   const toggleCollapsed = () => {
     setCollapsed(!collapsed)
   }
+  const goHome = () => {
+    window.location.href = '/'
+  }
 
   return (
-    <div className="work__info">
+    <div className={`work__info ${minimized ? 'work__info-minimized' : ''}`}>
+      <div className="work__info-icon work__info-maximized i-carbon-information-filled" onClick={() => setMinimized(false)} />
       <div className="work__info-header">
         {collapsed ? <div className="i-carbon-chevron-right work__info-icon" onClick={toggleCollapsed} /> : <div className="i-carbon-chevron-down work__info-icon" onClick={toggleCollapsed} />}
         <span className="work__info-title">{useMultiLangText(work.name)}</span>
-        <div className="work__info-icon i-carbon-home" />
+        <div className="work__info-icon i-carbon-home" onClick={goHome} />
+        <div className="work__info-icon i-carbon-close" onClick={() => setMinimized(true)} />
       </div>
       <p className="work__info-date">
         {useMultiLangText(publish)}

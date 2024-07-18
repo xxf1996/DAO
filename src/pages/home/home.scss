@@ -1,11 +1,7 @@
+@import "@/styles/_font.scss";
+
 $title-color: #ffffff5c;
 $quote-color: #ffffff9e;
-
-@mixin MaShanZheng {
-  font-family: "Ma Shan Zheng", cursive;
-  font-weight: 400;
-  font-style: normal;
-}
 
 .home {
   &__container {
