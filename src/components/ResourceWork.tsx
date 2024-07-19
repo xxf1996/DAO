@@ -19,10 +19,10 @@ function getResource(work: ResourceWorkInfo) {
     ${styles}
     ${css}
     ${scripts}
-    ${js}
   </head>
   <body>
     ${work.html}
+    ${js}
   </body>
 </html>
   `
