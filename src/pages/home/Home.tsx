@@ -56,6 +56,10 @@ const footerLinks: LinkInfo[] = [
     url: 'https://github.com/xxf1996'
   }
 ]
+const copyright: MultiLang = {
+  zh: '© 始于 2024/07',
+  en: '© From 2024/07'
+}
 
 function HomeFooter() {
   return (
@@ -67,6 +71,7 @@ function HomeFooter() {
           </a>
         ))}
       </div>
+      <p className="home__footer-copyright">{useMultiLangText(copyright)}</p>
     </div>
   )
 }
@@ -90,6 +95,7 @@ function Home() {
         <p className="text-right">——《道德经》</p>
       </div>
       <HomeWokrs />
+      <HomeFooter />
     </HomeContainer>
   )
 }

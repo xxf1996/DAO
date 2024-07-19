@@ -5,7 +5,7 @@ $quote-color: #ffffff9e;
 
 .home {
   &__container {
-    @apply h-screen w-screen bg-dark-900 px-6 py-4 box-border relative;
+    @apply h-screen w-screen flex flex-col bg-dark-900 px-6 py-4 box-border relative;
   }
 
   &__header {
@@ -50,7 +50,8 @@ $quote-color: #ffffff9e;
   }
 
   &__works {
-    @apply mt-10 w-200 mx-auto grid grid-cols-4 gap-2;
+    @apply flex-1 mt-10 w-200 mx-auto grid grid-cols-4 gap-2;
+    grid-auto-rows: min-content;
 
     $no-class: &+-no;
 
@@ -100,6 +101,30 @@ $quote-color: #ffffff9e;
       @apply mr-2;
       color: rgba(white, 0.2);
       transition: color 0.3s ease-in-out;
+    }
+  }
+
+  &__footer {
+    &-links {
+      @apply flex justify-center gap-2 font-bold;
+      font-size: 14px;
+
+      & > a {
+        @apply text-orange-900;
+        text-decoration: none;
+        transition: color 0.3s ease-in-out;
+
+        &:hover {
+          @apply text-orange-600;
+        }
+      }
+    }
+
+    &-copyright {
+      @apply text-right mt-1 mb-0;
+      font-size: 12px;
+      line-height: 1.2;
+      color: rgba(white, 0.3);
     }
   }
 }
