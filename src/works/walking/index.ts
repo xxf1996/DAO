@@ -12,14 +12,14 @@ const work: ResourceWorkInfo = {
   },
   desc: {
     en: 'walking',
-    zh: '行走'
+    zh: '用SVG曲线绘制的一幅简单的意象画面，沙滩中只有不停的脚步。'
   },
   css,
   js,
   html,
   scripts: [],
   styles: [],
-  publicDate: '2022-01-01',
+  publicDate: '2020-02-27',
   tags: [],
   links: [
     {

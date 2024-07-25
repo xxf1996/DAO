@@ -12,14 +12,14 @@ const work: ResourceWorkInfo = {
   },
   desc: {
     en: 'direction of the wind',
-    zh: '风的方向'
+    zh: '大概是大学时看到p5.js那典型的边框和几何，随手写的吧'
   },
   css,
   js,
   html,
   scripts: ['https://cdn.bootcss.com/p5.js/0.5.11/p5.min.js'],
   styles: [],
-  publicDate: '2022-01-01',
+  publicDate: '2017-06-13',
   tags: [],
   links: [
     {
@@ -28,6 +28,13 @@ const work: ResourceWorkInfo = {
         zh: 'p5.js'
       },
       url: 'https://p5js.org/'
+    },
+    {
+      name: {
+        en: 'codepen',
+        zh: 'codepen'
+      },
+      url: 'https://codepen.io/xxf1996/pen/XgKxNX'
     }
   ]
 }

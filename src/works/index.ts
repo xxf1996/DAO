@@ -11,12 +11,12 @@ export const works: WorkInfo[] = [
       zh: '目光如炬'
     },
     desc: {
-      en: 'test',
-      zh: '测试'
+      en: '作品灵感来自顾城的《一代人》，“黑夜给了我黑色的眼睛，我却用它寻找光明。”',
+      zh: '作品灵感来自顾城的《一代人》，“黑夜给了我黑色的眼睛，我却用它寻找光明。”'
     },
     url: 'https://xiexuefeng.cc/app/we/demo/eye-fires/',
-    publicDate: '2022-01-01',
-    tags: [],
+    publicDate: '20??-??',
+    tags: ['诗', '着色器'],
     links: [
       {
         name: {
