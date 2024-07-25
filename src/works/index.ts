@@ -1,6 +1,7 @@
 import type { WorkInfo } from '@/typings/work'
 import directionOfTheWind from './direction-of-the-wind'
 import walking from './walking'
+import thoughtsWandering from './thoughts-wandering'
 
 export const works: WorkInfo[] = [
   {
@@ -28,5 +29,6 @@ export const works: WorkInfo[] = [
     ]
   },
   directionOfTheWind,
-  walking
+  walking,
+  thoughtsWandering
 ]

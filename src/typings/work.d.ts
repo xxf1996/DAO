@@ -1,3 +1,5 @@
+import type { LazyExoticComponent } from 'react'
+
 /** 多语言映射 */
 interface MultiLang {
   zh: string
@@ -50,7 +52,7 @@ export interface ResourceWorkInfo extends WorkBaseInfo {
 /** React组件形式的作品 */
 export interface SourceCodeWorkInfo extends WorkBaseInfo {
   type: 'sourceCode'
-  component: React.JSX.Element
+  component: LazyExoticComponent<() => JSX.Element>
 }
 
 export type WorkInfo = IframeWorkInfo | ResourceWorkInfo | SourceCodeWorkInfo

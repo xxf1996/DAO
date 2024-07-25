@@ -69,6 +69,7 @@ function Work() {
       <Suspense fallback={null}>
         { work.type === 'iframe' ? <IframeWork work={work} /> : null }
         { work.type === 'resource' ? <ResourceWork work={work} /> : null }
+        { work.type === 'sourceCode' ? <work.component /> : null }
       </Suspense>
       <WorkInfoDisplay work={work} />
     </div>
