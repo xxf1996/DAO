@@ -15,7 +15,7 @@ const work: SourceCodeWorkInfo = {
   tags: [],
   links: [],
   publicDate: '',
-  component: lazy(() => import('./p5-test')),
+  component: lazy(() => import('./thoughts-wandering')),
 }
 
 export default work

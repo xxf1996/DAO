@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
-import './index.css'
+import '@/styles/global.scss'
 import '@unocss/reset/normalize.css'
 import 'virtual:uno.css'
 import Home from '@/pages/home/Home'

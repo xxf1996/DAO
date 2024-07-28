@@ -1,6 +1,7 @@
 import type { P5CanvasInstance } from '@p5-wrapper/react'
 import { ReactP5Wrapper } from '@p5-wrapper/react'
 import './index.scss'
+import { useP5 } from '@/hooks/p5'
 
 abstract class P5Code {
   constructor(private p5: P5CanvasInstance) {
@@ -20,21 +21,22 @@ abstract class P5Code {
   // }
 }
 
-function sketch(p5: P5CanvasInstance) {
-  p5.setup = () => p5.createCanvas(400, 400, p5.WEBGL)
+function setup(p5: P5CanvasInstance) {
+  p5.createCanvas(window.innerWidth, window.innerHeight, p5.WEBGL)
+}
 
-  p5.draw = () => {
-    p5.background(50)
-    p5.normalMaterial()
-    p5.push()
-    p5.rotateZ(p5.frameCount * 0.01)
-    p5.rotateX(p5.frameCount * 0.01)
-    p5.rotateY(p5.frameCount * 0.01)
-    p5.plane(100)
-    p5.pop()
-  }
+function draw(p5: P5CanvasInstance) {
+  p5.background(10)
+  p5.normalMaterial()
+  p5.push()
+  p5.rotateZ(p5.frameCount * 0.01)
+  p5.rotateX(p5.frameCount * 0.01)
+  p5.rotateY(p5.frameCount * 0.01)
+  p5.plane(100)
+  p5.pop()
 }
 
 export default function App() {
+  const { sketch } = useP5(setup, draw)
   return <ReactP5Wrapper sketch={sketch} />
 }

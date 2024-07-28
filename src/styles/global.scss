@@ -1,0 +1,8 @@
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+.react-p5-wrapper {
+  @apply flex h-full justify-center items-center bg-dark-900;
+}
