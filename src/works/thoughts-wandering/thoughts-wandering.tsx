@@ -5,7 +5,6 @@ import type { Color, Vector } from 'p5'
 
 let bg: Background
 let focusCenter: FocusCenter
-let moving = false
 let thoughtsPoint: ThoughtsPoint
 const circles: ThoughtsCircle[] = []
 
@@ -34,6 +33,11 @@ class FocusCenter {
 
   foward(speed = 0.1) {
     this.y -= speed
+  }
+
+  focus(x: number, y: number) {
+    this.x = x
+    this.y = y
   }
 
   update() {
@@ -152,9 +156,66 @@ class Background {
 }
 
 class ThoughtsPoint {
+  static pathNums = 100
   private paths: Vector[] = []
+  private nextDistance = 0
+  private nextAmplitude = 0
+  private nextSign = -1
+  private movingAnimation = new Tween({ basis: 0 })
+  private animastions = new Group()
+  private moving = true
   constructor(private p5: P5CanvasInstance) {
     this.paths.unshift(p5.createVector(0, window.innerHeight / 2 - 50))
+    this.generateMovingAnimation()
+  }
+
+  private generateMovingAnimation() {
+    // NOTICE: 基于正弦函数构造一个波形，distance正好是半个周期（y轴距离）
+    this.nextDistance = this.p5.random(120, 200)
+    this.nextAmplitude = this.p5.random(20, 40)
+    this.nextSign *= -1
+    const nextDuration = this.p5.random(5000, 8000)
+    const startX = this.x
+    const startY = this.y
+    // const b = Math.PI / this.nextDistance
+    this.movingAnimation = new Tween({ basis: 0 })
+      .to({ basis: 1 }, nextDuration)
+      .easing(Easing.Linear.None)
+      .onUpdate(({ basis }) => {
+        const xOffset = this.nextAmplitude * Math.sin(basis * Math.PI) * this.nextSign
+        const yOffset = basis * this.nextDistance
+        this.moveTo(
+          startX + xOffset,
+          startY - yOffset
+        )
+      })
+      .onComplete(() => {
+        this.moveTo(
+          startX,
+          startY - this.nextDistance
+        )
+        this.animastions.remove(this.movingAnimation)
+        if (this.moving) {
+          // setTimeout(() => {
+          //   this.generateMovingAnimation()
+          // }, 200)
+          this.generateMovingAnimation()
+        }
+      })
+      .start()
+
+    this.animastions.add(this.movingAnimation)
+  }
+
+  private animation() {
+    this.animastions.update(performance.now())
+    if (!this.movingAnimation.isPlaying()) {
+      this.moveTo(this.x, this.y)
+      this.moveTo(this.x, this.y)
+      // this.moveTo(this.x, this.y)
+      // this.moveTo(this.x, this.y)
+      // this.moveTo(this.x, this.y)
+    }
   }
 
   get x() {
@@ -165,36 +226,31 @@ class ThoughtsPoint {
     return this.paths[0].y
   }
 
-  moveTo(x: number, y: number) {
-    if (this.paths.length === 500) {
+  private moveTo(x: number, y: number) {
+    if (this.paths.length === ThoughtsPoint.pathNums) {
       this.paths.pop()
     }
     this.paths.unshift(this.p5.createVector(x, y))
   }
 
-  forword(speed = 0.1) {
+  private forword(speed = 0.1) {
     this.moveTo(this.x, this.y - speed)
   }
 
   display() {
+    this.animation()
     this.p5.strokeWeight(1)
+    // NOTICE: replace blend mode可以达到后绘制的完全覆盖之前的颜色
+    // https://p5js.org/reference/p5/blendMode/
+    this.p5.blendMode(this.p5.REPLACE)
     this.paths.forEach((path, idx) => {
-      if (idx % 20 !== 0) {
-        return
-      }
-      const scale = 1 - idx / 500
-      this.p5.fill(240 * scale)
-      this.p5.stroke(120, 255 * scale)
+      const scale = 1 - idx / ThoughtsPoint.pathNums
+      this.p5.noStroke()
+      this.p5.fill(240, scale * scale * scale * 255)
+      // this.p5.stroke(120, 255 * scale)
       this.p5.circle(path.x - focusCenter.X, path.y - focusCenter.Y, 20 * scale)
     })
-    // this.p5.stroke(255)
-    // this.p5.strokeWeight(3)
-    // this.p5.noFill()
-    // this.p5.beginShape()
-    // this.paths.forEach((path) => {
-    //   this.p5.vertex(path.x - focusCenter.X, path.y - focusCenter.Y)
-    // })
-    // this.p5.endShape()
+    this.p5.blendMode(this.p5.BLEND)
   }
 }
 
@@ -347,12 +403,7 @@ function setup(p5: P5CanvasInstance) {
 function draw(p5: P5CanvasInstance) {
   p5.background(20)
   bg.display()
-  if (moving) {
-    focusCenter.foward()
-    thoughtsPoint.moveTo(focusCenter.X, focusCenter.Y)
-  } else {
-    thoughtsPoint.forword()
-  }
+  focusCenter.focus(thoughtsPoint.x, thoughtsPoint.y)
   focusCenter.update()
   drawCircles()
   thoughtsPoint.display()
