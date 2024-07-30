@@ -1,7 +1,7 @@
 import { useP5 } from '@/hooks/p5'
 import { ReactP5Wrapper, type P5CanvasInstance } from '@p5-wrapper/react'
 import { Tween, Easing, Group } from '@tweenjs/tween.js'
-import type { Color, Vector } from 'p5'
+import { Color, Vector } from 'p5'
 
 let bg: Background
 let focusCenter: FocusCenter
@@ -164,6 +164,7 @@ class ThoughtsPoint {
   private movingAnimation = new Tween({ basis: 0 })
   private animastions = new Group()
   private moving = true
+  private container: null | ThoughtsCircle = null
   constructor(private p5: P5CanvasInstance) {
     this.paths.unshift(p5.createVector(0, window.innerHeight / 2 - 50))
     this.generateMovingAnimation()
@@ -252,13 +253,59 @@ class ThoughtsPoint {
     })
     this.p5.blendMode(this.p5.BLEND)
   }
+
+  capturedBy(circle: ThoughtsCircle) {
+    // 沿抛物线轨迹移动到圆心
+    this.container = circle
+    this.movingAnimation.stop()
+    this.animastions.remove(this.movingAnimation)
+    console.log('captured by: ', this.container)
+    const distance = this.paths[0].dist(circle.center)
+    const localX = this.x - circle.center.x
+    const localY = -(this.y - circle.center.y) // NOTICE: 要考虑到p5的y轴方向是竖直向下的
+    /**
+     * 相位差
+     *
+     * 因为这里的阿基米德螺线起始点在本地坐标系中的起点为(distance, 0)
+     *
+     * 因此需要计算当前位置在本地坐标系中相对起点的角度差，即相位差，这样就可以通过旋转相应角度来确保**无论在任何位置都是同一段螺线**！
+     */
+    const delta = Math.atan2(localY, localX)
+    /** 臂距 = 2π * b */
+    const b = distance / (Math.PI * 2)
+    const captureAnimation = new Tween({ angle: Math.PI * 2 })
+      .to({ angle: 0 }, 500)
+      .easing(Easing.Linear.None)
+      .onUpdate(({ angle }) => {
+        // 阿基米德螺线公式，a=0
+        const r = b * angle
+        // 加上相位差等同于旋转
+        const x = r * Math.cos(angle + delta)
+        const y = r * Math.sin(angle + delta)
+        this.moveTo(circle.center.x + x, circle.center.y - y)
+      })
+      .onComplete(() => {
+        this.animastions.remove(captureAnimation)
+      })
+      .start()
+
+    // TODO: 砸瓦鲁多的动画
+    this.animastions.add(captureAnimation)
+  }
+
+  /** 是否可以被捕获 */
+  get capturable() {
+    return this.container === null
+  }
 }
 
 interface ThoughtsCircleProps {
   radius: number
   color: Color
+  /** 引力系数，即引力范围相当于半径的多少倍 */
   attractiveness: number
   center: Vector
+  /** 延迟出现的时间，单位毫秒 */
   delay?: number
 }
 
@@ -286,6 +333,7 @@ class ThoughtsCircle {
   private breathAnimation: Tween
   private scale = 1
   static padding = 20
+  private prevCheckTime = 0
   constructor(private p5: P5CanvasInstance, private props: ThoughtsCircleProps) {
     let prevAlpha = 255
     this.breathAnimation = new Tween({ alpha: 255, scale: 1 })
@@ -344,6 +392,42 @@ class ThoughtsCircle {
     this.animations.update(performance.now())
   }
 
+  capture(thought: ThoughtsPoint) {
+    if (!thought.capturable) {
+      return
+    }
+
+    const curRadius = this.props.radius * this.scale
+    const thoughtPoint = this.p5.createVector(thought.x, thought.y)
+    const distance = thoughtPoint.dist(this.props.center)
+    // 进入圆圈必被捕获
+    if (distance < curRadius) {
+      thought.capturedBy(this)
+      return
+    }
+
+    // console.log('distance: ', distance)
+
+    const curTime = Date.now()
+    if (curTime - this.prevCheckTime < 200) {
+      return
+    }
+    this.prevCheckTime = curTime
+    const r = curRadius * this.props.attractiveness
+    if (distance > r) {
+      return
+    }
+    // 距离越近被捕获的概率越大，同样引力范围越大被捕获的概率也越大
+    const captured = Math.random() > distance / r
+    if (captured) {
+      thought.capturedBy(this)
+    }
+  }
+
+  get center() {
+    return this.props.center
+  }
+
   static random(p5: P5CanvasInstance) {
     const halfWidth = bg.initialWidth / 2 - ThoughtsCircle.padding
     const halfHeight = window.innerHeight / 2 - ThoughtsCircle.padding
@@ -380,7 +464,7 @@ function generateRandomCircels(p5: P5CanvasInstance) {
       color: p5.color(Math.round(p5.random(20, 120))),
       center: p5.createVector(x, y),
       delay: p5.random(500, 4000),
-      attractiveness: p5.random(0.2, 1)
+      attractiveness: p5.random(1.5, 2.5)
     })
     circles.push(circle)
   }
@@ -388,6 +472,7 @@ function generateRandomCircels(p5: P5CanvasInstance) {
 
 function drawCircles() {
   circles.forEach((circle) => {
+    circle.capture(thoughtsPoint)
     circle.display()
   })
 }
