@@ -1,12 +1,12 @@
 import { useP5 } from '@/hooks/p5'
 import { ReactP5Wrapper, type P5CanvasInstance } from '@p5-wrapper/react'
 import { Tween, Easing, Group } from '@tweenjs/tween.js'
-import { Color, Vector } from 'p5'
+import type { Color, Vector } from 'p5'
 
 let bg: Background
 let focusCenter: FocusCenter
 let thoughtsPoint: ThoughtsPoint
-const circles: ThoughtsCircle[] = []
+let circlesGenerator: CirclesGenerator
 
 /** p5的circle都是默认的分段数，因此圆圈很大的时候多边形就特别明显，不够平滑 */
 function circle(p5: P5CanvasInstance, centerX: number, centerY: number, radius: number, segments = 32) {
@@ -128,7 +128,7 @@ class Background {
   private adaptiveWidth() {
     let minX = Infinity
     let maxX = -Infinity
-    circles.forEach((circle) => {
+    circlesGenerator.Circles.forEach((circle) => {
       minX = Math.min(minX, circle.center.x - circle.realRadius)
       maxX = Math.max(maxX, circle.center.x + circle.realRadius)
     })
@@ -195,6 +195,14 @@ class Background {
       width / 2
     )
   }
+
+  isCircleInside(circle: ThoughtsCircle) {
+    const center = circle.realCenter
+    const radius = circle.realRadius
+    const top = center.y - radius
+
+    return top < this.windowHeight / 2
+  }
 }
 
 class ThoughtsPoint {
@@ -209,6 +217,8 @@ class ThoughtsPoint {
   private wanderingFrameCount = 0
   private wandering = false
   private container: null | ThoughtsCircle = null
+  /** 免疫期 */
+  private freeze = false
   /** 是否显示“尾巴” */
   private showTail = true
   constructor(private p5: P5CanvasInstance) {
@@ -313,6 +323,8 @@ class ThoughtsPoint {
     this.animations.remove(this.movingAnimation)
     this.showTail = false
     console.log('captured by: ', this.container)
+    ThoughtsCircle.theWorld = true
+    console.log('砸瓦鲁多')
     const distance = this.paths[0].dist(circle.center)
     const localX = this.x - circle.center.x
     const localY = -(this.y - circle.center.y) // NOTICE: 要考虑到p5的y轴方向是竖直向下的
@@ -342,7 +354,7 @@ class ThoughtsPoint {
         circle.enlarge()
         this.wandering = true
         this.showTail = true
-        this.resetPaths()
+        this.resetPaths() // 清空轨迹避免显示很割裂
         // focusCenter.focus(0, circle.center.y)
       })
       .start()
@@ -353,7 +365,7 @@ class ThoughtsPoint {
 
   /** 是否可以被捕获 */
   get capturable() {
-    return this.container === null
+    return this.container === null && !this.freeze
   }
 
   // private randomFrom2D(x: number, y: number) {
@@ -369,7 +381,7 @@ class ThoughtsPoint {
     this.wanderingFrameCount++
     // FIXME: 感觉这里的noise噪声概率不均匀？
     const theta = this.p5.noise(this.p5.frameCount * 0.001, this.wanderingFrameCount * 0.005) * this.p5.TWO_PI * 2 // 角度构成一个前进方向
-    const r = 0.2 // 半径就是速度
+    const r = 1 // 半径就是速度
     const nextX = this.x + r * Math.cos(theta)
     const nextY = this.y + r * Math.sin(theta)
     // 直线指示当前方向，貌似加上就有类似生物的感觉了？
@@ -388,15 +400,24 @@ class ThoughtsPoint {
     }
   }
 
+  private afterEscape() {
+    this.container = null
+    this.freeze = true
+    setTimeout(() => {
+      this.freeze = false
+    }, 5000)
+  }
+
   private escape() {
     if (!this.container) {
       return
     }
     const escapeAnimation = new Tween({ x: this.x, y: this.y })
-      .to({ x: 0, y: this.container.center.y }, 3000)
+      .to({ x: 0, y: this.container.center.y }, 500)
       .delay(2000)
       .easing(Easing.Bounce.Out)
       .onStart(() => {
+        this.showTail = false
         this.container?.shrink()
         this.moving = true
       })
@@ -405,8 +426,10 @@ class ThoughtsPoint {
       })
       .onComplete(() => {
         this.animations.remove(escapeAnimation)
+        this.showTail = true
+        this.resetPaths()
         this.generateMovingAnimation()
-        this.container = null
+        this.afterEscape()
       })
       .start()
 
@@ -452,15 +475,16 @@ class ThoughtsCircle {
   private prevCheckTime = 0
   private isContainer = false
   /** 砸瓦鲁多 */
-  private theWorld = false
+  static theWorld = false
   constructor(private p5: P5CanvasInstance, private props: ThoughtsCircleProps) {
     let prevAlpha = 255
     this.breathAnimation = new Tween({ alpha: 255, scale: 1 })
       .to({ alpha: 80, scale: 0.5 }, Math.round(p5.random(6000, 10000)))
+      .delay(p5.random(1000, 3000))
       .easing(Easing.Quadratic.InOut)
       .yoyo(true)
       .repeat(Infinity)
-      .repeatDelay(1000)
+      .repeatDelay(p5.random(500, 1500))
       .onUpdate(({ alpha, scale }) => {
         // FIXME: 不知道为啥当插值到80附近会突然变成255，应该是类似周期动画末期保持哪一帧的问题
         if (Math.abs(alpha - prevAlpha) > 100) {
@@ -489,10 +513,8 @@ class ThoughtsCircle {
       .onComplete(() => {
         this.props.color.setAlpha(255)
         this.animations.remove(tween)
-        if (!this.theWorld) {
-          this.animations.add(this.breathAnimation)
-          this.breathAnimation.start()
-        }
+        this.animations.add(this.breathAnimation)
+        this.breathAnimation.start()
       })
       .start()
 
@@ -500,14 +522,13 @@ class ThoughtsCircle {
   }
 
   display() {
-    if (this.theWorld && !this.isContainer) {
+    this.animation()
+    if (ThoughtsCircle.theWorld && !this.isContainer) {
       return
     }
-    this.animation()
     this.p5.noFill()
     this.p5.strokeWeight(2)
     this.p5.stroke(this.props.color)
-    // this.p5.circle(this.props.center.x - focusCenter.X, this.props.center.y - focusCenter.Y, this.props.radius * this.scale * 2)
     circle(
       this.p5,
       this.props.center.x - focusCenter.X,
@@ -540,7 +561,7 @@ class ThoughtsCircle {
   }
 
   shrink() {
-    this.theWorld = false
+    ThoughtsCircle.theWorld = false
     const shrinkAnimation = new Tween({ scale: this.scale })
       .to({ scale: 1 }, 300)
       .easing(Easing.Quartic.In)
@@ -564,11 +585,8 @@ class ThoughtsCircle {
 
   capture(thought: ThoughtsPoint) {
     if (!thought.capturable) {
-      this.theWorld = true
       return
     }
-
-    this.theWorld = false
     const curRadius = this.props.radius * this.scale
     const thoughtPoint = this.p5.createVector(thought.x, thought.y)
     const distance = thoughtPoint.dist(this.props.center)
@@ -608,6 +626,10 @@ class ThoughtsCircle {
     return this.props.radius * this.scale
   }
 
+  get realCenter() {
+    return this.p5.createVector(this.props.center.x - focusCenter.X, this.props.center.y - focusCenter.Y)
+  }
+
   static random(p5: P5CanvasInstance) {
     const halfWidth = bg.initialWidth / 2 - ThoughtsCircle.padding
     const halfHeight = window.innerHeight / 2 - ThoughtsCircle.padding
@@ -623,45 +645,91 @@ class ThoughtsCircle {
   }
 }
 
-function generateRandomCircels(p5: P5CanvasInstance) {
-  const nums = 24
-  const padding = 50
-  const halfWidth = bg.initialWidth / 2 - padding
-  const halfHeight = window.innerHeight / 2
-  const verticalAxis = Math.ceil(nums / 2)
-  const verticalHeight = window.innerHeight / verticalAxis
-  const halfVerticalHeight = verticalHeight / 2
-  p5.randomSeed(Math.random() * 1000000000)
-
-  for (let i = 0; i < nums; i++) {
-    const sign = i % 2 === 0 ? 1 : -1
-    const yAxis = Math.floor(i / 2)
-    const baseY = -halfHeight + yAxis * verticalHeight + halfVerticalHeight
-    const x = p5.random(padding, halfWidth) * sign
-    const y = p5.random(-halfVerticalHeight, halfVerticalHeight) + baseY
-    const circle = new ThoughtsCircle(p5, {
-      radius: Math.round(p5.random(30, 50)),
-      color: p5.color(Math.round(p5.random(20, 120))),
-      center: p5.createVector(x, y),
-      delay: p5.random(500, 4000),
-      attractiveness: p5.random(1.5, 2.5)
-    })
-    circles.push(circle)
+class CirclesGenerator {
+  static readonly padding = 50
+  private circles: ThoughtsCircle[] = []
+  private no = 0
+  private halfWidth: number
+  private halfHeight: number
+  private verticalAxis: number
+  private verticalHeight: number
+  private halfVerticalHeight: number
+  constructor(private readonly p5: P5CanvasInstance, private readonly totalNums = 30) {
+    this.halfWidth = bg.initialWidth / 2 - CirclesGenerator.padding
+    this.halfHeight = window.innerHeight / 2
+    this.verticalAxis = Math.ceil(totalNums / 2)
+    this.verticalHeight = window.innerHeight / this.verticalAxis
+    this.halfVerticalHeight = this.verticalHeight / 2
+    for (let i = 0; i < totalNums; i++) {
+      this.generate()
+    }
   }
-}
 
-function drawCircles() {
-  circles.forEach((circle) => {
-    circle.capture(thoughtsPoint)
-    circle.display()
-  })
+  /**
+   * 根据总的圆圈数量，将竖直空间划分成等距的若干份
+   *
+   * 依次按照左右顺序生成圆圈，且沿空间向上移动
+   */
+  private generate() {
+    if (this.circles.length >= this.totalNums) {
+      return
+    }
+    this.p5.randomSeed(Math.random() * 1000000000)
+    const sign = this.no % 2 === 0 ? 1 : -1
+    const yAxis = Math.floor(this.no / 2)
+    const baseY = this.halfHeight - (yAxis * this.verticalHeight + this.halfVerticalHeight)
+    const x = this.p5.random(CirclesGenerator.padding, this.halfWidth) * sign
+    const y = this.p5.random(-this.halfVerticalHeight, this.halfVerticalHeight) + baseY
+    const circle = new ThoughtsCircle(this.p5, {
+      radius: Math.round(this.p5.random(30, 50)),
+      color: this.p5.color(Math.round(this.p5.random(20, 120))),
+      center: this.p5.createVector(x, y),
+      delay: this.p5.random(200, 1000),
+      attractiveness: this.p5.random(1.5, 2.5)
+    })
+    this.circles.push(circle)
+    this.no++
+  }
+
+  private checkOutside() {
+    if (ThoughtsCircle.theWorld) {
+      return
+    }
+    const outsideIdx: number[] = []
+    this.circles.forEach((circle, idx) => {
+      if (bg.isCircleInside(circle)) {
+        return
+      }
+      outsideIdx.push(idx)
+    })
+
+    outsideIdx.forEach((idx) => {
+      this.circles.splice(idx, 1)
+      console.log('remove: ', idx)
+    })
+    outsideIdx.forEach(() => {
+      this.generate()
+    })
+  }
+
+  drawCircles() {
+    this.checkOutside()
+    this.circles.forEach((circle) => {
+      circle.capture(thoughtsPoint)
+      circle.display()
+    })
+  }
+
+  get Circles() {
+    return this.circles
+  }
 }
 
 function setup(p5: P5CanvasInstance) {
   focusCenter = new FocusCenter()
   thoughtsPoint = new ThoughtsPoint(p5)
   bg = new Background(p5)
-  generateRandomCircels(p5)
+  circlesGenerator = new CirclesGenerator(p5)
   p5.createCanvas(window.innerWidth, window.innerHeight, p5.WEBGL)
 }
 
@@ -670,7 +738,7 @@ function draw(p5: P5CanvasInstance) {
   bg.display()
   focusCenter.focus(0, thoughtsPoint.y)
   focusCenter.update()
-  drawCircles()
+  circlesGenerator.drawCircles()
   thoughtsPoint.display()
 }
 
