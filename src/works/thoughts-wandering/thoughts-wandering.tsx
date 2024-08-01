@@ -1,7 +1,7 @@
 import { useP5 } from '@/hooks/p5'
 import { ReactP5Wrapper, type P5CanvasInstance } from '@p5-wrapper/react'
 import { Tween, Easing, Group } from '@tweenjs/tween.js'
-import type { Color, Vector } from 'p5'
+import { Color, Vector } from 'p5'
 
 let bg: Background
 let focusCenter: FocusCenter
@@ -204,9 +204,13 @@ class ThoughtsPoint {
   private nextAmplitude = 0
   private nextSign = -1
   private movingAnimation = new Tween({ basis: 0 })
-  private animastions = new Group()
+  private animations = new Group()
   private moving = true
+  private wanderingFrameCount = 0
+  private wandering = false
   private container: null | ThoughtsCircle = null
+  /** 是否显示“尾巴” */
+  private showTail = true
   constructor(private p5: P5CanvasInstance) {
     this.paths.unshift(p5.createVector(0, window.innerHeight / 2 + 200))
     this.generateMovingAnimation()
@@ -237,27 +241,28 @@ class ThoughtsPoint {
           startX,
           startY - this.nextDistance
         )
-        this.animastions.remove(this.movingAnimation)
+        this.animations.remove(this.movingAnimation)
         if (this.moving) {
-          // setTimeout(() => {
-          //   this.generateMovingAnimation()
-          // }, 200)
           this.generateMovingAnimation()
         }
       })
       .start()
 
-    this.animastions.add(this.movingAnimation)
+    this.animations.add(this.movingAnimation)
   }
 
   private animation() {
-    this.animastions.update(performance.now())
-    if (!this.movingAnimation.isPlaying()) {
+    this.animations.update(performance.now())
+    if (!this.moving) {
       this.moveTo(this.x, this.y)
       this.moveTo(this.x, this.y)
       // this.moveTo(this.x, this.y)
       // this.moveTo(this.x, this.y)
       // this.moveTo(this.x, this.y)
+    }
+
+    if (this.wandering) {
+      this.randomWalk()
     }
   }
 
@@ -280,13 +285,18 @@ class ThoughtsPoint {
     this.moveTo(this.x, this.y - speed)
   }
 
+  /** 清空运动轨迹，只保留当前位置 */
+  private resetPaths() {
+    this.paths.splice(1)
+  }
+
   display() {
     this.animation()
     this.p5.strokeWeight(1)
     // NOTICE: replace blend mode可以达到后绘制的完全覆盖之前的颜色
     // https://p5js.org/reference/p5/blendMode/
-    this.p5.blendMode(this.p5.REPLACE)
-    this.paths.forEach((path, idx) => {
+    this.p5.blendMode(this.p5.REPLACE);
+    (this.showTail ? this.paths : this.paths.slice(0, 1)).forEach((path, idx) => {
       const scale = 1 - idx / ThoughtsPoint.pathNums
       this.p5.noStroke()
       this.p5.fill(240, scale * scale * scale * 255)
@@ -300,7 +310,8 @@ class ThoughtsPoint {
     // 沿抛物线轨迹移动到圆心
     this.container = circle
     this.movingAnimation.stop()
-    this.animastions.remove(this.movingAnimation)
+    this.animations.remove(this.movingAnimation)
+    this.showTail = false
     console.log('captured by: ', this.container)
     const distance = this.paths[0].dist(circle.center)
     const localX = this.x - circle.center.x
@@ -327,13 +338,17 @@ class ThoughtsPoint {
         this.moveTo(circle.center.x + x, circle.center.y - y)
       })
       .onComplete(() => {
-        this.animastions.remove(captureAnimation)
+        this.animations.remove(captureAnimation)
         circle.enlarge()
+        this.wandering = true
+        this.showTail = true
+        this.resetPaths()
+        // focusCenter.focus(0, circle.center.y)
       })
       .start()
 
     // TODO: 砸瓦鲁多的动画
-    this.animastions.add(captureAnimation)
+    this.animations.add(captureAnimation)
   }
 
   /** 是否可以被捕获 */
@@ -341,11 +356,65 @@ class ThoughtsPoint {
     return this.container === null
   }
 
-  private wandering() {
-    // TODO: 随机游荡
+  // private randomFrom2D(x: number, y: number) {
+  //   const value = Math.sin(Vector.dot(this.p5.createVector(x, y), this.p5.createVector(12.3912, 18.83653))) * 73134.41
+  //   return this.p5.fract(value)
+  // }
+
+  /** 基于perlin噪声的随机游走 */
+  private randomWalk() {
+    if (!this.container) {
+      return
+    }
+    this.wanderingFrameCount++
+    // FIXME: 感觉这里的noise噪声概率不均匀？
+    const theta = this.p5.noise(this.p5.frameCount * 0.001, this.wanderingFrameCount * 0.005) * this.p5.TWO_PI * 2 // 角度构成一个前进方向
+    const r = 0.2 // 半径就是速度
+    const nextX = this.x + r * Math.cos(theta)
+    const nextY = this.y + r * Math.sin(theta)
+    // 直线指示当前方向，貌似加上就有类似生物的感觉了？
+    this.p5.stroke(200)
+    this.p5.line(
+      this.x - focusCenter.X,
+      this.y - focusCenter.Y,
+      this.x + 20 * Math.cos(theta) - focusCenter.X,
+      this.y + 20 * Math.sin(theta) - focusCenter.Y
+    )
+    this.moveTo(nextX, nextY)
+    if (this.paths[0].dist(this.container.center) > this.container.realRadius - 1) {
+      this.wandering = false
+      this.moving = false
+      this.escape()
+    }
+  }
+
+  private escape() {
+    if (!this.container) {
+      return
+    }
+    const escapeAnimation = new Tween({ x: this.x, y: this.y })
+      .to({ x: 0, y: this.container.center.y }, 3000)
+      .delay(2000)
+      .easing(Easing.Bounce.Out)
+      .onStart(() => {
+        this.container?.shrink()
+        this.moving = true
+      })
+      .onUpdate(({ x }) => {
+        this.moveTo(x, this.y)
+      })
+      .onComplete(() => {
+        this.animations.remove(escapeAnimation)
+        this.generateMovingAnimation()
+        this.container = null
+      })
+      .start()
+
+    this.animations.add(escapeAnimation)
   }
 }
 
+// TODO: 圆心可以加上类似行星的椭圆运动轨迹
 interface ThoughtsCircleProps {
   radius: number
   color: Color
@@ -470,6 +539,25 @@ class ThoughtsCircle {
     this.animations.add(enlargeAnimation)
   }
 
+  shrink() {
+    this.theWorld = false
+    const shrinkAnimation = new Tween({ scale: this.scale })
+      .to({ scale: 1 }, 300)
+      .easing(Easing.Quartic.In)
+      .onUpdate(({ scale }) => {
+        this.scale = scale
+      })
+      .onComplete(() => {
+        this.isContainer = false
+        this.animations.remove(shrinkAnimation)
+        this.animations.add(this.breathAnimation)
+        this.breathAnimation.start()
+      })
+      .start()
+
+    this.animations.add(shrinkAnimation)
+  }
+
   private animation() {
     this.animations.update(performance.now())
   }
@@ -486,6 +574,7 @@ class ThoughtsCircle {
     const distance = thoughtPoint.dist(this.props.center)
     // 进入圆圈必被捕获
     if (distance < curRadius) {
+      console.log('distance: ', distance, 'curRadius: ', curRadius, 'scale: ', this.scale)
       thought.capturedBy(this)
       this.isContainer = true
       return
@@ -505,6 +594,7 @@ class ThoughtsCircle {
     // 距离越近被捕获的概率越大，同样引力范围越大被捕获的概率也越大
     const captured = Math.random() > distance / r
     if (captured) {
+      console.log(distance, r)
       thought.capturedBy(this)
       this.isContainer = true
     }
