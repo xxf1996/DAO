@@ -4,6 +4,7 @@ import { Tween, Easing, Group } from '@tweenjs/tween.js'
 import type { Color, Vector } from 'p5'
 
 let bg: Background
+/** 焦点，用于模拟相机移动 */
 let focusCenter: FocusCenter
 let thoughtsPoint: ThoughtsPoint
 let circlesGenerator: CirclesGenerator
@@ -93,6 +94,10 @@ class Background {
   private initialRight: number
   /** tween animation group */
   private animations = new Group()
+  /** 背景区域颜色是否反转，用于配合砸瓦鲁多效果 */
+  private inverted = false
+  /** 反转区域比例，用于过渡动画 */
+  private invertedBais = 0
   constructor(private p5: P5CanvasInstance) {
     this.windowWidth = window.innerWidth
     this.windowHeight = window.innerHeight
@@ -126,6 +131,9 @@ class Background {
    * 根据圆圈显示区域自适应背景的宽度，确保圆圈不会超出背景
    */
   private adaptiveWidth() {
+    if (this.animations.getAll().length > 0) {
+      return
+    }
     let minX = Infinity
     let maxX = -Infinity
     circlesGenerator.Circles.forEach((circle) => {
@@ -141,12 +149,14 @@ class Background {
     if (targetRight < this.initialRight) {
       targetRight = this.initialRight
     }
-    this.left = targetLeft
-    this.right = targetRight
+
+    if (targetLeft !== this.left || targetRight !== this.right) {
+      this.transition(targetLeft, targetRight)
+    }
   }
 
   display() {
-    // this.animation()
+    this.animation()
     this.adaptiveWidth()
     this.p5.noStroke()
     this.p5.fill(10)
@@ -169,11 +179,10 @@ class Background {
     this.setRight(this.right + delta)
   }
 
-  transition(left: number, right: number) {
+  private transition(left: number, right: number, duration = 200) {
     const tween = new Tween({ left: this.left, right: this.right })
-      .to({ left, right }, 2000)
-      .delay(1000)
-      .easing(Easing.Quadratic.Out)
+      .to({ left, right }, duration)
+      .easing(Easing.Linear.None)
       .onUpdate(({ left, right }) => {
         this.setLeft(left)
         this.setRight(right)
@@ -196,6 +205,7 @@ class Background {
     )
   }
 
+  /** 判断圆圈是否在背景区域内 */
   isCircleInside(circle: ThoughtsCircle) {
     const center = circle.realCenter
     const radius = circle.realRadius
@@ -203,21 +213,76 @@ class Background {
 
     return top < this.windowHeight / 2
   }
+
+  /** 启动反转 */
+  invert() {
+    this.inverted = true
+    const invertAnimation = new Tween({ invertedBais: 0 })
+      .to({ invertedBais: 1 }, 300)
+      .easing(Easing.Cubic.In)
+      .onUpdate(({ invertedBais }) => {
+        this.invertedBais = invertedBais
+      })
+      .onComplete(() => {
+        this.animations.remove(invertAnimation)
+      })
+      .start()
+
+    this.animations.add(invertAnimation)
+  }
+
+  /** 停止反转 */
+  normal() {
+    const invertAnimation = new Tween({ invertedBais: 1 })
+      .to({ invertedBais: 0 }, 300)
+      .easing(Easing.Cubic.In)
+      .onUpdate(({ invertedBais }) => {
+        this.invertedBais = invertedBais
+      })
+      .onComplete(() => {
+        this.animations.remove(invertAnimation)
+        this.inverted = false
+      })
+      .start()
+
+    this.animations.add(invertAnimation)
+  }
+
+  /** 由于通过blendmode来控制反转的区域，因此需要最后绘制，以便进行覆盖 */
+  finalDraw() {
+    if (!this.inverted) {
+      return
+    }
+    // FIXME: 本来打算用difference模式，但是不知道为啥不起作用？
+    this.p5.blendMode(this.p5.EXCLUSION)
+    this.p5.noStroke()
+    this.p5.fill(255)
+    this.p5.rect(this.x, this.y, this.width, this.windowHeight * this.invertedBais)
+    this.p5.blendMode(this.p5.BLEND)
+  }
 }
 
 class ThoughtsPoint {
+  /** 历史路径总数，用于控制拖尾的长度 */
   static pathNums = 100
   private paths: Vector[] = []
+  /** 下一次移动的y轴距离 */
   private nextDistance = 0
+  /** 下一次移动的振幅 */
   private nextAmplitude = 0
+  /** 下一次移动的方向（x轴） */
   private nextSign = -1
+  /** 常规移动动画 */
   private movingAnimation = new Tween({ basis: 0 })
   private animations = new Group()
   private moving = true
+  /** 随机游走总步数，用于噪声生成 */
   private wanderingFrameCount = 0
+  /** 是否正在进行随机游走 */
   private wandering = false
+  /** 被捕获的圆 */
   private container: null | ThoughtsCircle = null
-  /** 免疫期 */
+  /** 是否处于免疫期（用于免疫捕获） */
   private freeze = false
   /** 是否显示“尾巴” */
   private showTail = true
@@ -263,12 +328,10 @@ class ThoughtsPoint {
 
   private animation() {
     this.animations.update(performance.now())
+    // 非移动状态下，路径归一
     if (!this.moving) {
       this.moveTo(this.x, this.y)
       this.moveTo(this.x, this.y)
-      // this.moveTo(this.x, this.y)
-      // this.moveTo(this.x, this.y)
-      // this.moveTo(this.x, this.y)
     }
 
     if (this.wandering) {
@@ -351,6 +414,7 @@ class ThoughtsPoint {
       })
       .onComplete(() => {
         this.animations.remove(captureAnimation)
+        bg.invert()
         circle.enlarge()
         this.wandering = true
         this.showTail = true
@@ -381,7 +445,7 @@ class ThoughtsPoint {
     this.wanderingFrameCount++
     // FIXME: 感觉这里的noise噪声概率不均匀？
     const theta = this.p5.noise(this.p5.frameCount * 0.001, this.wanderingFrameCount * 0.005) * this.p5.TWO_PI * 2 // 角度构成一个前进方向
-    const r = 1 // 半径就是速度
+    const r = 0.3 // 半径就是速度
     const nextX = this.x + r * Math.cos(theta)
     const nextY = this.y + r * Math.sin(theta)
     // 直线指示当前方向，貌似加上就有类似生物的感觉了？
@@ -433,6 +497,7 @@ class ThoughtsPoint {
       })
       .start()
 
+    bg.normal()
     this.animations.add(escapeAnimation)
   }
 }
@@ -469,20 +534,23 @@ function randomSign() {
 // TODO: 从特定颜色列表中随机选取
 class ThoughtsCircle {
   private animations = new Group()
+  /** 呼吸动画 */
   private breathAnimation: Tween
+  /** 缩放系数，控制半径 */
   private scale = 1
   static padding = 20
   private prevCheckTime = 0
+  /** 是否成为捕获point的容器 */
   private isContainer = false
-  /** 砸瓦鲁多 */
+  /** 砸瓦鲁多（时停，隐藏容器和point以外的要素） */
   static theWorld = false
   constructor(private p5: P5CanvasInstance, private props: ThoughtsCircleProps) {
     let prevAlpha = 255
     this.breathAnimation = new Tween({ alpha: 255, scale: 1 })
       .to({ alpha: 80, scale: 0.5 }, Math.round(p5.random(6000, 10000)))
-      .delay(p5.random(1000, 3000))
+      .delay(p5.random(1000, 10000))
       .easing(Easing.Quadratic.InOut)
-      .yoyo(true)
+      .yoyo(true) // 往返动画
       .repeat(Infinity)
       .repeatDelay(p5.random(500, 1500))
       .onUpdate(({ alpha, scale }) => {
@@ -497,6 +565,7 @@ class ThoughtsCircle {
     this.initDelay()
   }
 
+  /** 初始化延迟动画 */
   private initDelay() {
     if (!this.props.delay) {
       this.animations.add(this.breathAnimation)
@@ -534,10 +603,11 @@ class ThoughtsCircle {
       this.props.center.x - focusCenter.X,
       this.props.center.y - focusCenter.Y,
       this.props.radius * this.scale,
-      this.scale > 2 ? 120 : 32
+      this.scale > 2 ? 120 : 32 // 半径越大，需要的分段数越多，不然就不够光滑
     )
   }
 
+  /** 放大 */
   enlarge() {
     if (!this.isContainer) {
       return
@@ -560,6 +630,7 @@ class ThoughtsCircle {
     this.animations.add(enlargeAnimation)
   }
 
+  /** 缩小 */
   shrink() {
     ThoughtsCircle.theWorld = false
     const shrinkAnimation = new Tween({ scale: this.scale })
@@ -583,6 +654,7 @@ class ThoughtsCircle {
     this.animations.update(performance.now())
   }
 
+  /** 捕获过程 */
   capture(thought: ThoughtsPoint) {
     if (!thought.capturable) {
       return
@@ -691,6 +763,7 @@ class CirclesGenerator {
     this.no++
   }
 
+  /** 检测是否有圆圈超出屏幕，超出则自动销毁然后补充新的 */
   private checkOutside() {
     if (ThoughtsCircle.theWorld) {
       return
@@ -740,6 +813,7 @@ function draw(p5: P5CanvasInstance) {
   focusCenter.update()
   circlesGenerator.drawCircles()
   thoughtsPoint.display()
+  bg.finalDraw()
 }
 
 function ThoughtsWandering() {
