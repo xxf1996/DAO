@@ -1,4 +1,5 @@
 import { useP5 } from '@/hooks/p5'
+import '@/utils/p5-sound'
 import { ReactP5Wrapper, type P5CanvasInstance } from '@p5-wrapper/react'
 import { Tween, Easing, Group } from '@tweenjs/tween.js'
 import type { Color, Vector } from 'p5'
@@ -150,7 +151,7 @@ class Background {
       targetRight = this.initialRight
     }
 
-    if (targetLeft !== this.left || targetRight !== this.right) {
+    if (Math.abs(targetLeft - this.left) > 0.001 || Math.abs(targetRight - this.right) > 0.001) {
       this.transition(targetLeft, targetRight)
     }
   }
@@ -798,12 +799,15 @@ class CirclesGenerator {
   }
 }
 
-function setup(p5: P5CanvasInstance) {
+async function setup(p5: P5CanvasInstance) {
+  console.log(p5)
   focusCenter = new FocusCenter()
   thoughtsPoint = new ThoughtsPoint(p5)
   bg = new Background(p5)
   circlesGenerator = new CirclesGenerator(p5)
+  // NOTICE: 这里采用的是WebGL context，因此坐标系跟canvas不一致？
   p5.createCanvas(window.innerWidth, window.innerHeight, p5.WEBGL)
+  // p5.debugMode(p5.GRID)
 }
 
 function draw(p5: P5CanvasInstance) {

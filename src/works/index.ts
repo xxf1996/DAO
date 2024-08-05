@@ -2,8 +2,10 @@ import type { WorkInfo } from '@/typings/work'
 import directionOfTheWind from './direction-of-the-wind'
 import walking from './walking'
 import thoughtsWandering from './thoughts-wandering'
+import logo from './logo'
 
 export const works: WorkInfo[] = [
+  logo,
   {
     type: 'iframe',
     alias: 'eye-fires',
