@@ -11,6 +11,17 @@ $quote-color: #ffffff9e;
   &__header {
     @apply box-border flex items-center justify-end;
 
+    &-logo {
+      @apply mr-auto cursor-pointer;
+      width: 100px;
+      height: 100px;
+
+      & canvas {
+        width: 100px !important;
+        height: 100px !important;
+      }
+    }
+
     &-lang {
       @apply flex items-center mr-4;
       color: rgba(white, 0.1);

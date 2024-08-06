@@ -3,6 +3,7 @@ import type { LangTypes, LinkInfo, MultiLang } from '@/typings/work'
 import { works } from '@/works'
 import './home.scss'
 import { useLocalStorage } from 'react-use'
+import Logo from '@/works/logo/logo'
 
 export interface HomeContainerProps {
   children?: React.ReactNode
@@ -19,7 +20,7 @@ function HomeContainer({ children }: HomeContainerProps) {
 function HomeWokrs() {
   return (
     <div className="home__works">
-      { works.map((work, idx) => (
+      { works.slice(1).map((work, idx) => ( // slice(1) 去掉 logo
         <a key={work.alias} href={`/${work.alias}`}>
           <span className="home__works-no">{(idx + 1).toString().padStart(3, '0')}</span>
           {useMultiLangText(work.name)}
@@ -38,6 +39,9 @@ function HomeHeader() {
 
   return (
     <div className="home__header">
+      <a className="home__header-logo" href="/logo">
+        <Logo />
+      </a>
       <div className="home__header-lang">
         <button className={`home__header-lang-btn ${lang === 'zh' ? 'home__header-lang-active' : ''}`} onClick={() => toggleLang('zh')}>中</button>
         /

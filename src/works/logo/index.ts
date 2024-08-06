@@ -5,16 +5,16 @@ const work: SourceCodeWorkInfo = {
   type: 'sourceCode',
   alias: 'logo',
   name: {
-    en: 'logo',
-    zh: 'logo',
+    en: 'Logo',
+    zh: 'Logo',
   },
   desc: {
-    en: 'logo',
-    zh: 'logo',
+    en: 'Logo',
+    zh: 'Logo',
   },
   tags: [],
   links: [],
-  publicDate: '',
+  publicDate: '2024-08-06',
   component: lazy(() => import('./logo')),
 }
 
