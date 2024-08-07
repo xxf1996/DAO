@@ -4,6 +4,8 @@ import { works } from '@/works'
 import './home.scss'
 import { useLocalStorage } from 'react-use'
 import Logo from '@/works/logo/logo'
+import { numToHanzi } from '@/utils/text'
+import { useState } from 'react'
 
 export interface HomeContainerProps {
   children?: React.ReactNode
@@ -18,10 +20,19 @@ function HomeContainer({ children }: HomeContainerProps) {
 }
 
 function HomeWokrs() {
+  const [hoveredNo, setHoveredNo] = useState('')
   return (
     <div className="home__works">
+      <div className="home__works-hanzi">{ hoveredNo }</div>
       { works.slice(1).map((work, idx) => ( // slice(1) 去掉 logo
-        <a key={work.alias} href={`/${work.alias}`}>
+        <a
+          className="home__works-link"
+          key={work.alias}
+          href={`/${work.alias}`}
+          data-hanzi={numToHanzi(idx + 1)}
+          onMouseEnter={() => setHoveredNo(numToHanzi(idx + 1))}
+          onMouseLeave={() => setHoveredNo('')}
+        >
           <span className="home__works-no">{(idx + 1).toString().padStart(3, '0')}</span>
           {useMultiLangText(work.name)}
         </a>
@@ -58,6 +69,13 @@ const footerLinks: LinkInfo[] = [
       zh: 'Github'
     },
     url: 'https://github.com/xxf1996'
+  },
+  {
+    name: {
+      en: 'About',
+      zh: '关于'
+    },
+    url: '/about'
   }
 ]
 const copyright: MultiLang = {

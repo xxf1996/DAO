@@ -40,7 +40,13 @@
     }
 
     &-content {
+      text-indent: 1em;
       font-size: 14px;
+      line-height: 1.5;
+    }
+
+    &-desc {
+      word-break: break-all;
     }
 
     &-link {

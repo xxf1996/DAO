@@ -48,7 +48,7 @@ $quote-color: #ffffff9e;
   }
 
   &__title {
-    @apply text-center my-4;
+    @apply text-center mb-4 -mt-8;
     @include MaShanZheng;
     font-size: 60px;
     color: $title-color;
@@ -66,7 +66,18 @@ $quote-color: #ffffff9e;
 
     $no-class: &+-no;
 
-    & a {
+    &-hanzi {
+      @apply fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      // z-index: -1;
+      @include MaShanZheng;
+      font-size: 400px;
+      color: rgba(white, 0.01);
+    }
+
+    &-link {
       @include MaShanZheng;
       @apply p-2 outline-none relative;
       width: fit-content;
@@ -117,7 +128,7 @@ $quote-color: #ffffff9e;
 
   &__footer {
     &-links {
-      @apply flex justify-center gap-2 font-bold;
+      @apply flex justify-center gap-8 font-bold;
       font-size: 14px;
 
       & > a {

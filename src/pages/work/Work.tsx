@@ -18,9 +18,10 @@ const publish: MultiLang = {
   en: 'Publish At'
 }
 
+/** 作品信息展示 */
 function WorkInfoDisplay({ work }: WorkInfoDisplayProps) {
-  const [collapsed, setCollapsed] = useState(true)
-  const [minimized, setMinimized] = useState(false)
+  const [collapsed, setCollapsed] = useState(false) // 是否折叠
+  const [minimized, setMinimized] = useState(false) // 是否最小化显示
   const toggleCollapsed = () => {
     setCollapsed(!collapsed)
   }
