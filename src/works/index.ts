@@ -3,6 +3,7 @@ import directionOfTheWind from './direction-of-the-wind'
 import walking from './walking'
 import thoughtsWandering from './thoughts-wandering'
 import logo from './logo'
+import spectacleSociety from './spectacle-society'
 
 export const works: WorkInfo[] = [
   logo,
@@ -32,5 +33,6 @@ export const works: WorkInfo[] = [
   },
   directionOfTheWind,
   walking,
-  thoughtsWandering
+  thoughtsWandering,
+  spectacleSociety,
 ]
