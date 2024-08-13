@@ -7,8 +7,12 @@ const spectacles: Spectacles[] = []
 
 class Spectacles {
   static spectaclesSize = 20
+  static focusedTarget?: Spectacles
   private depth = 0
   private color: Color
+  private focused = false
+  private focusStartTime = 0
+  private focusTime = 0
   constructor(private p5: P5CanvasInstance, private position: Vector) {
     this.color = p5.color(240)
   }
@@ -21,7 +25,35 @@ class Spectacles {
     this.color = color
   }
 
+  focus() {
+    this.focused = true
+    Spectacles.focusedTarget = this
+    this.focusStartTime = Date.now()
+    this.focusTime = this.p5.random(10000, 30000)
+    this.setColor(this.p5.color(255, 0, 0))
+  }
+
+  blur() {
+    this.focused = false
+    Spectacles.focusedTarget = undefined
+    this.setColor(this.p5.color(240))
+  }
+
+  private update() {
+    if (!this.focused) {
+      return
+    }
+    if (Date.now() - this.focusStartTime > this.focusTime) {
+      this.blur()
+    }
+  }
+
+  private get size() {
+    return Spectacles.spectaclesSize
+  }
+
   display() {
+    this.update()
     this.p5.push()
     this.p5.fill(20)
     this.p5.stroke(this.color)
@@ -40,14 +72,27 @@ class Spectacles {
     this.p5.beginShape()
     this.p5.vertex(left, 0, 0)
     this.p5.vertex(left, 0, -Spectacles.spectaclesSize * 2)
-    this.p5.vertex(left, 5, -Spectacles.spectaclesSize * 2)
+    this.p5.vertex(left, Spectacles.spectaclesSize * 0.25, -Spectacles.spectaclesSize * 2)
     this.p5.endShape()
     this.p5.beginShape()
     this.p5.vertex(right, 0, 0)
     this.p5.vertex(right, 0, -Spectacles.spectaclesSize * 2)
-    this.p5.vertex(right, 5, -Spectacles.spectaclesSize * 2)
+    this.p5.vertex(right, Spectacles.spectaclesSize * 0.25, -Spectacles.spectaclesSize * 2)
     this.p5.endShape()
     this.p5.pop()
+  }
+
+  static choice(list: Spectacles[]) {
+    if (Spectacles.focusedTarget) {
+      return
+    }
+    const target = list[Math.floor(Math.random() * list.length)]
+    target.focus()
+  }
+
+  static run(list: Spectacles[]) {
+    Spectacles.choice(list)
+    list.forEach(el => el.display())
   }
 }
 
@@ -70,17 +115,35 @@ function originalViewSetup(p5: P5CanvasInstance) {
   camera.lookAt(-2000 * basis, 0 * basis, -2500 * basis)
   p5.setCamera(camera)
   p5.debugMode(p5.AXES)
+  // 由于相机无法设置旋转？根据原图，顶部应该是水平的，所以对整体结果进行旋转以便对齐
+  p5.rotateZ(0.33)
 }
 
 function originalViewDraw(p5: P5CanvasInstance) {
   p5.background(20)
-  // 由于相机无法设置旋转？根据原图，顶部应该是水平的，所以对整体结果进行旋转以便对齐
-  p5.rotateZ(0.33)
+  p5.orbitControl()
   spectacles.forEach(s => s.display())
 }
 
+function draw(p5: P5CanvasInstance) {
+  p5.background(20)
+  p5.orbitControl()
+  Spectacles.run(spectacles)
+}
+
+function setup(p5: P5CanvasInstance) {
+  p5.createCanvas(p5.windowWidth, p5.windowHeight, p5.WEBGL)
+  for (let x = -10; x <= 10; x++) {
+    for (let y = -10; y <= 10; y++) {
+      const el = new Spectacles(p5, p5.createVector(x * 100, y * 100))
+      el.setZ(y * 100)
+      spectacles.push(el)
+    }
+  }
+}
+
 function SpectacleSociety() {
-  const { sketch } = useP5(originalViewSetup, originalViewDraw)
+  const { sketch } = useP5(setup, draw)
   return <ReactP5Wrapper sketch={sketch} />
 }
 
