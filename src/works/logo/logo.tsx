@@ -3,13 +3,13 @@ import type { P5CanvasInstance } from '@p5-wrapper/react'
 import { ReactP5Wrapper } from '@p5-wrapper/react'
 import { Easing, Group, Tween } from '@tweenjs/tween.js'
 import { random } from 'lodash-es'
-import { Vector } from 'p5'
+import type { Vector } from 'p5'
 let logoSketch: LogoSketch
 
 class AniamtionRect {
   private isParticle = false
   private isValid = true
-  private velocity = new Vector(0, 0)
+  private velocity: Vector
   private rotationVelocity = 0
   /** 粒子效果结束的位置（y轴） */
   private endY = 0
@@ -22,7 +22,8 @@ class AniamtionRect {
   private offsetX = 0
   /** 相对起始位置的偏移（Y轴） */
   private offsetY = 0
-  constructor(private origin: Vector, private size: number) {
+  constructor(private p5: P5CanvasInstance, private origin: Vector, private size: number) {
+    this.velocity = p5.createVector(0, 0)
     this.halfSize = size / 2
     this.position = origin.copy()
   }
@@ -61,7 +62,7 @@ class AniamtionRect {
     this.endY = end
     this.isParticle = true
     this.animations.removeAll()
-    this.velocity = new Vector(
+    this.velocity = this.p5.createVector(
       random(-0.8, 0.8),
       random(0.5, 1.5)
     )
@@ -128,6 +129,7 @@ class LogoRect {
         const basis = y / axisNum
         const aplha = (1 - basis) * 255
         const rect = new AniamtionRect(
+          this.p5,
           this.p5.createVector(this.origin.x + x * LogoRect.miniRectSize, this.origin.y + y * LogoRect.miniRectSize),
           LogoRect.miniRectSize
         )

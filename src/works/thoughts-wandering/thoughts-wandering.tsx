@@ -1,5 +1,5 @@
 import { useP5 } from '@/hooks/p5'
-import '@/utils/p5-sound'
+// import '@/utils/p5-sound'
 import { ReactP5Wrapper, type P5CanvasInstance } from '@p5-wrapper/react'
 import { Tween, Easing, Group } from '@tweenjs/tween.js'
 import type { Color, Vector } from 'p5'
