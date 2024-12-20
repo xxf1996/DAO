@@ -289,7 +289,7 @@ function setup(p5: P5CanvasInstance) {
       spectacles.push(el)
     }
   }
-  p5.debugMode(p5.AXES)
+  // p5.debugMode(p5.AXES)
 }
 
 function SpectacleSociety() {

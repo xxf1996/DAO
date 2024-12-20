@@ -11,7 +11,12 @@ export interface HomeContainerProps {
   children?: React.ReactNode
 }
 
-function HomeContainer({ children }: HomeContainerProps) {
+export interface HomeHeaderProps {
+  /** 点击logo跳转的路径，默认为 /logo */
+  logoPath?: string
+}
+
+export function HomeContainer({ children }: HomeContainerProps) {
   return (
     <div className="home__container">
       { children }
@@ -41,7 +46,7 @@ function HomeWokrs() {
   )
 }
 
-function HomeHeader() {
+export function HomeHeader({ logoPath }: HomeHeaderProps) {
   const [lang, setLang] = useLocalStorage<LangTypes>('dao-lang', 'zh')
   const toggleLang = (type: LangTypes) => {
     setLang(type)
@@ -50,7 +55,7 @@ function HomeHeader() {
 
   return (
     <div className="home__header">
-      <a className="home__header-logo" href="/logo">
+      <a className="home__header-logo" href={logoPath ?? '/logo'}>
         <Logo />
       </a>
       <div className="home__header-lang">
@@ -80,7 +85,7 @@ const footerLinks: LinkInfo[] = [
 ]
 const copyright: MultiLang = {
   zh: '© 始于 2024/07',
-  en: '© From 2024/07'
+  en: '© Since 2024/07'
 }
 
 function HomeFooter() {

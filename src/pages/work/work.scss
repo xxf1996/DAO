@@ -27,6 +27,7 @@
       height: 1em;
       color: rgba(white, 0.5);
       transition: color 0.3s ease-in-out;
+      flex-shrink: 0;
 
       &:hover {
         @apply cursor-pointer;
@@ -40,17 +41,17 @@
     }
 
     &-content {
-      text-indent: 1em;
       font-size: 14px;
       line-height: 1.5;
     }
 
     &-desc {
       word-break: break-all;
+      white-space: pre-line;
     }
 
     &-link {
-      @apply flex items-center gap-1 text-orange-700;
+      @apply flex items-center gap-1 text-orange-700 font-size-3 mb-1 break-all;
       width: fit-content;
       text-decoration: none;
       transition: color 0.3s ease-in-out;

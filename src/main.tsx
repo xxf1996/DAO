@@ -5,6 +5,7 @@ import '@unocss/reset/normalize.css'
 import 'virtual:uno.css'
 import Home from '@/pages/home/Home'
 import Work from '@/pages/work/Work'
+import About from '@/pages/about/About'
 import Page404 from '@/pages/error/404'
 import { RouterProvider, createBrowserRouter } from 'react-router-dom'
 import { find } from 'lodash-es'
@@ -14,6 +15,10 @@ const router = createBrowserRouter([
   {
     path: '/',
     element: <Home />
+  },
+  {
+    path: '/about',
+    element: <About />
   },
   {
     path: '/:alias',
