@@ -73,7 +73,7 @@ const footerLinks: LinkInfo[] = [
       en: 'Github',
       zh: 'Github'
     },
-    url: 'https://github.com/xxf1996'
+    url: 'https://github.com/xxf1996/DAO'
   },
   {
     name: {
