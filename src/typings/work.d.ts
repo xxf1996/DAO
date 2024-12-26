@@ -26,6 +26,8 @@ interface WorkBaseInfo {
   tags: string[]
   /** 作品要显示的外链 */
   links: LinkInfo[]
+  /** 源码地址 */
+  sourceUrl?: string
 }
 
 /** 直接整体引用到iframe的作品 */
