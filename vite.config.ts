@@ -29,6 +29,9 @@ export default defineConfig({
       output: {
         manualChunks: {
           'p5-wrapper': ['@p5-wrapper/react'], // 这个包体积有点大，进行拆分
+          // 'react': ['react', 'react-dom'],
+          // 'react-router-dom': ['react-router-dom'],
+          // 'react-three': ['@react-three/fiber', 'three']
         }
       }
     }

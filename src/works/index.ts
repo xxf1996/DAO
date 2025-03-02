@@ -4,6 +4,7 @@ import walking from './walking'
 import thoughtsWandering from './thoughts-wandering'
 import logo from './logo'
 import spectacleSociety from './spectacle-society'
+import tree from './tree'
 
 export const works: WorkInfo[] = [
   logo,
@@ -35,4 +36,5 @@ export const works: WorkInfo[] = [
   walking,
   thoughtsWandering,
   spectacleSociety,
+  tree
 ]

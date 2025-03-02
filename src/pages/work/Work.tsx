@@ -64,7 +64,7 @@ function WorkInfoDisplay({ work }: WorkInfoDisplayProps) {
 
 function Work() {
   const work = useLoaderData() as WorkInfo
-  console.log(work)
+  // console.log(work)
   return (
     <div className="work__container">
       <Suspense fallback={null}>

@@ -1,5 +1,5 @@
 import React from 'react'
-import ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import '@/styles/global.scss'
 import '@unocss/reset/normalize.css'
 import 'virtual:uno.css'
@@ -7,6 +7,7 @@ import Home from '@/pages/home/Home'
 import Work from '@/pages/work/Work'
 import About from '@/pages/about/About'
 import Page404 from '@/pages/error/404'
+import Test from '@/works/tree/test'
 import { RouterProvider, createBrowserRouter } from 'react-router-dom'
 import { find } from 'lodash-es'
 import { works } from './works'
@@ -19,6 +20,10 @@ const router = createBrowserRouter([
   {
     path: '/about',
     element: <About />
+  },
+  {
+    path: '/test',
+    element: <Test />,
   },
   {
     path: '/:alias',
@@ -37,9 +42,9 @@ const router = createBrowserRouter([
   }
 ])
 
-ReactDOM.render(
+const root = createRoot(document.getElementById('root')!)
+root.render(
   <React.StrictMode>
     <RouterProvider router={router} />
-  </React.StrictMode>,
-  document.getElementById('root')
+  </React.StrictMode>
 )
