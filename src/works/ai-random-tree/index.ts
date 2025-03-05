@@ -6,7 +6,7 @@ const work: SourceCodeWorkInfo = {
   type: 'sourceCode',
   alias: 'ai-random-tree',
   name: {
-    en: 'Tree',
+    en: 'Random Tree',
     zh: '随机树'
   },
   desc: {
@@ -15,7 +15,7 @@ const work: SourceCodeWorkInfo = {
   },
   tags: ['three.js'],
   links: [THREE_LINK, THREE_FIBER_LINK],
-  publicDate: '2024-01-01',
+  publicDate: '2025-03-05',
   component: lazy(() => import('./tree-fiber')),
 }
 
