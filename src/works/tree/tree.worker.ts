@@ -55,11 +55,11 @@ function generateTree(
     let maxBranches = 3.2
 
     if (len >= 120) {
-      minBranches = 3
-      maxBranches = 4
+      minBranches = 4
+      maxBranches = 6
     } else if (len >= 80) {
-      minBranches = 2.5
-      maxBranches = 3.5
+      minBranches = 2
+      maxBranches = 4
     }
 
     const branches = Math.floor(Math.random() * (maxBranches - minBranches) + minBranches)
