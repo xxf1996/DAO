@@ -4,7 +4,7 @@ import walking from './walking'
 import thoughtsWandering from './thoughts-wandering'
 import logo from './logo'
 import spectacleSociety from './spectacle-society'
-import tree from './tree'
+import tree from './ai-random-tree'
 
 export const works: WorkInfo[] = [
   logo,

@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
-import { useControls } from 'leva'
+import { folder, useControls } from 'leva'
 import * as THREE from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber' // NOTICE: v9版本大概率不兼容react18！
 import { OrbitControls } from '@react-three/drei'
@@ -11,6 +11,7 @@ import branchVertexShader from './shaders/branch.vert?raw'
 import branchFragmentShader from './shaders/branch.frag?raw'
 import leafVertexShader from './shaders/leaf.vert?raw'
 import leafFragmentShader from './shaders/leaf.frag?raw'
+import { useMultiLangText } from '@/hooks/text'
 
 // 创建共享材质
 // 创建共享光照参数
@@ -51,6 +52,10 @@ const leafMaterial = new THREE.ShaderMaterial({
 // 创建共享几何体 - 扁平的椭圆形叶片
 const leafGeometry = new THREE.CircleGeometry(1.5, 8)
 
+// 动画并发控制
+const MAX_CONCURRENT_ANIMATIONS = 10
+let currentAnimationCount = 0
+
 // Branch组件 - 负责渲染单个分支及其叶片
 function Branch({ node, season }: { node: TreeNode, season: number }) {
   const { clock } = useThree()
@@ -68,12 +73,15 @@ function Branch({ node, season }: { node: TreeNode, season: number }) {
       setVisible(true)
       // 添加缩放动画
       const startTime = Date.now()
+      currentAnimationCount++ // 增加动画计数
       const animate = () => {
         const elapsed = Date.now() - startTime
         const progress = Math.min(elapsed / 1000, 1) // 500ms内完成缩放
         setScale(progress)
         if (progress < 1) {
           requestAnimationFrame(animate)
+        } else {
+          currentAnimationCount-- // 动画结束时减少计数
         }
       }
       requestAnimationFrame(animate)
@@ -162,16 +170,55 @@ function Branch({ node, season }: { node: TreeNode, season: number }) {
   )
 }
 
+// Scene组件 - 负责渲染场景内容
+function Scene({ treeStructure, season }: { treeStructure: TreeNode | null, season: number }) {
+  // const { camera } = useThree()
+  // useEffect(() => {
+  //   camera.lookAt(new THREE.Vector3(0, 800, 0))
+  //   console.log(camera)
+  // })
+  return (
+    <>
+      <OrbitControls
+        enablePan={true}
+        enableZoom={true}
+        enableRotate={true}
+        minDistance={100}
+        maxDistance={1000}
+        minPolarAngle={0}
+        maxPolarAngle={Math.PI / 2}
+        target={new THREE.Vector3(0, 300, 0)}
+      />
+      <ambientLight intensity={1.0} />
+      <pointLight position={[100, 100, 100]} intensity={1.5} />
+      <directionalLight position={[-50, -200, 100]} intensity={0.8} />
+      {/* 为Branch组件添加一个基于时间戳的key，确保每次生成新的树结构时都能触发绽放动画。 */}
+      {treeStructure && <Branch key={Date.now()} node={treeStructure} season={season} />}
+    </>
+  )
+}
+
 // TreeFiber组件 - 主渲染组件
 function TreeFiber() {
   // 使用leva库创建可调节的参数控制面板
   const controls = useControls({
+    // 树木参数
     density: { value: 0.7, min: 0.3, max: 1, step: 0.1 }, // 分支密度
     lengthFactor: { value: 0.8, min: 0.5, max: 0.9, step: 0.1 }, // 长度衰减
     thicknessFactor: { value: 0.7, min: 0.5, max: 0.9, step: 0.1 }, // 粗细衰减
     maxLevel: { value: 6, min: 3, max: 10, step: 1 }, // 最大层级
     maxLeafCount: { value: 360, min: 10, max: 600, step: 10 }, // 最大叶片数
-    season: { value: 0.3, min: 0, max: 1, step: 0.01 } // 季节变化
+    season: { value: 0.3, min: 0, max: 1, step: 0.01 }, // 季节变化
+    // 相机操作说明
+    相机操作: folder({
+      操作说明: {
+        value: useMultiLangText({
+          zh: '鼠标左键: 旋转视角\n鼠标右键: 平移场景\n鼠标滚轮: 缩放场景',
+          en: 'Left Mouse: Rotate View\nRight Mouse: Pan Scene\nMouse Wheel: Zoom Scene'
+        }),
+        editable: false
+      }
+    }),
   })
 
   const [isLoading, setIsLoading] = useState(false)
@@ -275,7 +322,11 @@ function TreeFiber() {
         </div>
       )}
       <Canvas
-        camera={{ position: [0, -800, 500], fov: 75, far: 2000 }}
+        camera={{
+          position: [-300, -200, 100],
+          fov: 75,
+          far: 2000,
+        }}
         style={{ background: '#F5F5F0' }}
         gl={{
           preserveDrawingBuffer: true,
@@ -285,20 +336,7 @@ function TreeFiber() {
         dpr={[1, 2]} // 适配不同设备像素比
         performance={{ min: 0.5 }} // 允许在性能不足时降低渲染质量
       >
-        <OrbitControls
-          enablePan={true}
-          enableZoom={true}
-          enableRotate={true}
-          minDistance={100}
-          maxDistance={1000}
-          minPolarAngle={0}
-          maxPolarAngle={Math.PI / 2}
-        />
-        <ambientLight intensity={1.0} />
-        <pointLight position={[100, 100, 100]} intensity={1.5} />
-        <directionalLight position={[-50, -200, 100]} intensity={0.8} />
-        {/* 为Branch组件添加一个基于时间戳的key，确保每次生成新的树结构时都能触发绽放动画。 */}
-        {treeStructure.current && <Branch key={Date.now()} node={treeStructure.current} season={controls.season} /> }
+        <Scene treeStructure={treeStructure.current} season={controls.season} />
       </Canvas>
     </div>
   )
