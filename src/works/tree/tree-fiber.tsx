@@ -6,93 +6,45 @@ import { OrbitControls } from '@react-three/drei'
 import './index.scss'
 import type { TreeNode } from './tree.worker'
 import TreeWorker from './tree.worker.ts?worker'
+// 导入着色器文件
+import branchVertexShader from './shaders/branch.vert?raw'
+import branchFragmentShader from './shaders/branch.frag?raw'
+import leafVertexShader from './shaders/leaf.vert?raw'
+import leafFragmentShader from './shaders/leaf.frag?raw'
+
+// 创建共享材质
+// 创建共享光照参数
+const lightParams = {
+  ambientLightIntensity: 0.5,
+  directionalLightPosition: new THREE.Vector3(-50, -200, 100),
+  directionalLightIntensity: 1
+}
 
 // 创建共享材质
 const watercolorMaterial = new THREE.ShaderMaterial({
   uniforms: {
-    time: { value: 0 }, // 用于动画效果
-    color: { value: new THREE.Color('#8B4513') }, // 树干基础颜色
-    opacity: { value: 0.8 } // 透明度
+    time: { value: 0 },
+    color: { value: new THREE.Color('#B4845F') },
+    ambientLightIntensity: { value: lightParams.ambientLightIntensity },
+    directionalLightPosition: { value: lightParams.directionalLightPosition },
+    directionalLightIntensity: { value: lightParams.directionalLightIntensity }
   },
-  vertexShader: `
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `,
-  fragmentShader: `
-    precision mediump float;
-    uniform float time;
-    uniform vec3 color;
-    uniform float opacity;
-    varying vec2 vUv;
-
-    float random(vec2 st) {
-      return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
-    }
-
-    void main() {
-      vec2 st = vUv;
-      float noise = random(st + time * 0.1);
-      vec3 finalColor = mix(color, color * 1.2, noise);
-      gl_FragColor = vec4(finalColor, opacity * (0.8 + noise * 0.2));
-    }
-  `,
-  transparent: true,
-  side: THREE.DoubleSide
+  vertexShader: branchVertexShader,
+  fragmentShader: branchFragmentShader,
+  side: THREE.DoubleSide,
+  // transparent: true
 })
 
 const leafMaterial = new THREE.ShaderMaterial({
   uniforms: {
-    time: { value: 0 }, // 用于动画效果
-    season: { value: 0.0 }, // 季节变化参数 (0-1)
-    opacity: { value: 0.6 } // 基础透明度
+    time: { value: 0 },
+    season: { value: 0.0 },
+    ambientLightIntensity: { value: lightParams.ambientLightIntensity },
+    directionalLightPosition: { value: lightParams.directionalLightPosition },
+    directionalLightIntensity: { value: lightParams.directionalLightIntensity }
   },
-  vertexShader: `
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `,
-  fragmentShader: `
-    precision mediump float;
-    uniform float time;
-    uniform float season;
-    uniform float opacity;
-    varying vec2 vUv;
-
-    float random(vec2 st) {
-      return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
-    }
-
-    vec3 getSeasonColor(float season) {
-      vec3 springColor = vec3(0.7, 1.0, 0.5);  // 更鲜亮的春季绿色
-      vec3 summerColor = vec3(0.0, 0.8, 0.0);  // 更饱和的夏季绿色
-      vec3 autumnColor = vec3(1.0, 0.6, 0.1);  // 更鲜艳的秋季金黄色
-      vec3 winterColor = vec3(0.7, 0.3, 0.1);  // 更温暖的冬季褐色
-
-      float normalizedSeason = season * 3.0;
-      int seasonIndex = int(floor(normalizedSeason));
-      float t = fract(normalizedSeason);
-
-      if (seasonIndex == 0) return mix(springColor, summerColor, t);
-      if (seasonIndex == 1) return mix(summerColor, autumnColor, t);
-      if (season == 1.0f) return winterColor;
-      return mix(autumnColor, winterColor, t);
-    }
-
-    void main() {
-      vec2 st = vUv;
-      float noise = random(st + time * 0.1);
-      vec3 seasonColor = getSeasonColor(season);
-      vec3 finalColor = mix(seasonColor, seasonColor * 1.2, noise);
-      float seasonOpacity = opacity * (1.0 - season * 0.3); // 冬天时叶片更透明
-      gl_FragColor = vec4(finalColor, seasonOpacity * (0.8 + noise * 0.2));
-    }
-  `,
-  transparent: true,
+  vertexShader: leafVertexShader,
+  fragmentShader: leafFragmentShader,
   side: THREE.DoubleSide
 })
 
@@ -139,21 +91,28 @@ function Branch({ node, season }: { node: TreeNode, season: number }) {
   const position = new THREE.Vector3(node.position.x, node.position.y, node.position.z)
   const rotation = new THREE.Euler(node.rotation.x, node.rotation.y, node.rotation.z, node.rotation.order as THREE.EulerOrder)
 
-  // 使用三次贝塞尔曲线生成平滑的分支形状
+  // 使用三次贝塞尔曲线生成平滑的分支形状，调整控制点使连接更平滑
   const curve = new THREE.CubicBezierCurve3(
     new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(node.controlX * Math.cos(rotation.z), node.length * 0.3, node.controlX * Math.sin(rotation.z)),
-    new THREE.Vector3(node.controlX * Math.cos(rotation.z), node.length * 0.7, node.controlX * Math.sin(rotation.z)),
+    // 调整第一个控制点，使其更靠近起点
+    new THREE.Vector3(node.controlX * 0.1 * Math.cos(rotation.z), node.length * 0.15, node.controlX * 0.1 * Math.sin(rotation.z)),
+    // 调整第二个控制点，使其更靠近终点
+    new THREE.Vector3(node.controlX * 0.9 * Math.cos(rotation.z), node.length * 0.85, node.controlX * 0.9 * Math.sin(rotation.z)),
     new THREE.Vector3(0, node.length, 0)
   )
 
-  // 性能优化：减少几何体的细分数量
-  const points = curve.getPoints(8)
+  // 性能优化：增加曲线细分数量以提高平滑度
+  const points = curve.getPoints(32) // 增加采样点数量以提高平滑度
+
+  // 根据层级计算过渡因子
+  const transitionFactor = Math.pow(0.85, level.current)
+  const adjustedThickness = (node.thickness / 2) * transitionFactor
+
   const geometry = new THREE.TubeGeometry(
     new THREE.CatmullRomCurve3(points),
-    6,
-    node.thickness / 2,
-    6,
+    24, // 增加管道段数
+    adjustedThickness,
+    12, // 管道横截面分段数
     false
   )
 
@@ -211,7 +170,7 @@ function TreeFiber() {
     lengthFactor: { value: 0.8, min: 0.5, max: 0.9, step: 0.1 }, // 长度衰减
     thicknessFactor: { value: 0.7, min: 0.5, max: 0.9, step: 0.1 }, // 粗细衰减
     maxLevel: { value: 6, min: 3, max: 10, step: 1 }, // 最大层级
-    maxLeafCount: { value: 240, min: 10, max: 500, step: 10 }, // 最大叶片数
+    maxLeafCount: { value: 360, min: 10, max: 600, step: 10 }, // 最大叶片数
     season: { value: 0.3, min: 0, max: 1, step: 0.01 } // 季节变化
   })
 
