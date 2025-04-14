@@ -17,7 +17,7 @@ const work: ResourceWorkInfo = {
   css,
   js,
   html,
-  scripts: ['https://cdn.bootcss.com/p5.js/0.5.11/p5.min.js'],
+  scripts: ['https://cdn.jsdelivr.net/npm/p5@0.5.11/lib/p5.min.js'],
   styles: [],
   publicDate: '2017-06-13',
   tags: [],
