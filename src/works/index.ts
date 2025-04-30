@@ -5,6 +5,7 @@ import thoughtsWandering from './thoughts-wandering'
 import logo from './logo'
 import spectacleSociety from './spectacle-society'
 import tree from './ai-random-tree'
+import idEgoSuperego from './id-ego-superego'
 
 export const works: WorkInfo[] = [
   logo,
@@ -36,5 +37,6 @@ export const works: WorkInfo[] = [
   walking,
   thoughtsWandering,
   spectacleSociety,
-  tree
+  tree,
+  idEgoSuperego
 ]
