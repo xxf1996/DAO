@@ -8,11 +8,25 @@ const GRAVITY = 0.3
 const FRICTION = 0.98
 const RESTITUTION = 0.6
 // 增加天平灵敏度
-const BALANCE_SENSITIVITY = 0.01
+const BALANCE_SENSITIVITY = 0.02
 // 小球之间的弹性系数
 const BALL_RESTITUTION = 0.7
 // 调试模式
 let debugMode = false
+const leftKeywords = [
+  '快',
+  '欲望',
+  '冲动',
+  '本能',
+  '原始',
+  '💩'
+]
+const rightKeywords = [
+  '慢',
+  '理性',
+  '逻辑',
+  '意识',
+]
 
 // 天平类
 class Balance {
@@ -30,14 +44,16 @@ class Balance {
   // 添加震动效果变量
   private shakeIntensity = 0
   private shakeDecay = 0.9
+  private plateColor
 
   constructor(private p5: P5CanvasInstance) {
     this.pivotX = 0
     this.pivotY = 0
     this.beamLength = 500
-    this.beamHeight = 8
+    this.beamHeight = 5
     this.plateWidth = 200
-    this.plateHeight = 80 // 盘子深度
+    this.plateHeight = 100 // 盘子深度
+    this.plateColor = p5.color('#ff3366')
   }
 
   private animation() {
@@ -206,7 +222,7 @@ class Balance {
 
     // 绘制支架 - 极简风格
     this.p5.stroke(220)
-    this.p5.strokeWeight(2)
+    this.p5.strokeWeight(3)
     this.p5.line(this.pivotX, this.pivotY, this.pivotX, this.pivotY + 180)
     this.p5.line(this.pivotX - 120, this.pivotY + 180, this.pivotX + 120, this.pivotY + 180)
 
@@ -221,9 +237,9 @@ class Balance {
     this.p5.line(-this.beamLength / 2, 0, this.beamLength / 2, 0)
 
     // 绘制左盘容器
-    this.p5.stroke(240)
-    this.p5.strokeWeight(2)
-    this.p5.noFill()
+    this.p5.stroke(this.plateColor)
+    // this.p5.strokeWeight(2)
+    // this.p5.noFill()
 
     // 左容器
     const leftX = -this.beamLength / 2
@@ -430,8 +446,9 @@ class Ball {
   private isContained = false // 是否已经被容器装住
   private disappearTime: number // 小球消失时间
   private creationTime: number // 小球创建时间
+  private keyword: string // 显示在小球内的关键词
 
-  constructor(private p5: P5CanvasInstance, x: number, y: number, radius: number) {
+  constructor(private p5: P5CanvasInstance, x: number, y: number, radius: number, keyword: string = '') {
     this.position = p5.createVector(x, y)
     this.velocity = p5.createVector(0, 0)
     this.acceleration = p5.createVector(0, 0)
@@ -445,6 +462,8 @@ class Ball {
     // 设置创建时间和随机的消失时间（3-10秒）
     this.creationTime = p5.millis()
     this.disappearTime = this.creationTime + p5.random(5000, 15000)
+    // 设置关键词
+    this.keyword = keyword
   }
 
   applyForce(force: Vector) {
@@ -456,7 +475,7 @@ class Ball {
 
   update(balance: Balance, balls: Ball[]) {
     // 检查是否到达消失时间
-    if (this.p5.millis() > this.disappearTime && this.isContained) {
+    if (this.p5.millis() > this.disappearTime) {
       // 记录小球的质量和位置，用于从天平上移除
       const ballMass = this.mass
       const wasOnLeftPlate = this.isOnLeftPlate
@@ -699,12 +718,14 @@ class Ball {
 
   display() {
     this.p5.push()
+
     // 如果小球快要消失，显示闪烁效果
     const timeLeft = this.disappearTime - this.p5.millis()
     if (this.isContained && timeLeft < 1000) {
       // 根据剩余时间调整透明度
       const alpha = Math.max(50, Math.min(255, timeLeft / 1000 * 255))
       this.p5.fill(this.color[0], this.color[1], this.color[2], alpha)
+
       // 如果非常接近消失时间，添加闪烁效果
       if (timeLeft < 500 && Math.random() > 0.5) {
         this.p5.fill(this.color[0], this.color[1], this.color[2], 50)
@@ -712,8 +733,24 @@ class Ball {
     } else {
       this.p5.fill(this.color)
     }
+
     this.p5.noStroke()
     this.p5.circle(this.position.x, this.position.y, this.radius * 2)
+
+    // 绘制关键词
+    if (this.keyword && this.keyword.length > 0) {
+      // 设置文本样式
+      this.p5.fill(0) // 黑色文字
+      this.p5.textAlign(this.p5.CENTER, this.p5.CENTER)
+
+      // 根据球体大小调整字体大小
+      const fontSize = Math.max(8, Math.min(14, this.radius * 0.9))
+      this.p5.textSize(fontSize)
+
+      // 在小球中心绘制文字
+      this.p5.text(this.keyword, this.position.x, this.position.y)
+    }
+
     this.p5.pop()
   }
 
@@ -760,8 +797,12 @@ class BallGenerator {
     const y = -this.p5.height / 2 + 50
     // 增加小球尺寸差异
     const radius = this.p5.random(8, 20)
+    const keyword = side === -1
+      ? leftKeywords[this.p5.floor(this.p5.random(leftKeywords.length))]
+      : rightKeywords[this.p5.floor(this.p5.random(rightKeywords.length))]
 
-    this.balls.push(new Ball(this.p5, x, y, radius))
+    // 将关键词传递给Ball构造函数
+    this.balls.push(new Ball(this.p5, x, y, radius, keyword))
   }
 
   display() {
