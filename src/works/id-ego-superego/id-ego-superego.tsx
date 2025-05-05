@@ -11,6 +11,8 @@ const RESTITUTION = 0.6
 const BALANCE_SENSITIVITY = 0.02
 // 小球之间的弹性系数
 const BALL_RESTITUTION = 0.7
+/** 侧向力系数 */
+const SIDE_FORCE_FACTOR = 5.5
 // 调试模式
 let debugMode = false
 const leftKeywords = [
@@ -18,14 +20,40 @@ const leftKeywords = [
   '欲望',
   '冲动',
   '本能',
-  '原始',
-  '💩'
+  '💩',
+  '乡愿',
+  '逃避',
+  '懒惰',
+  '拖延',
+  '纵容',
+  '惯性',
+  '抱怨',
+  '计较',
+  '自私',
+  '贪婪',
+  '嫉妒',
+  '傲慢',
+  '偏见',
+  '恐惧',
+  '焦虑',
+  '抑郁',
+  '绝望',
+  '麻木',
 ]
 const rightKeywords = [
   '慢',
   '理性',
   '逻辑',
   '意识',
+  '健康',
+  '自律',
+  '计划',
+  '知足',
+  '思考',
+  '实践',
+  '付出',
+  '行动',
+  '😊'
 ]
 
 // 天平类
@@ -44,7 +72,8 @@ class Balance {
   // 添加震动效果变量
   private shakeIntensity = 0
   private shakeDecay = 0.9
-  private plateColor
+  private leftPlateColor
+  private rightPlateColor
 
   constructor(private p5: P5CanvasInstance) {
     this.pivotX = 0
@@ -53,7 +82,8 @@ class Balance {
     this.beamHeight = 5
     this.plateWidth = 200
     this.plateHeight = 100 // 盘子深度
-    this.plateColor = p5.color('#ff3366')
+    this.leftPlateColor = p5.color('#ff3366')
+    this.rightPlateColor = p5.color('#3366ff')
   }
 
   private animation() {
@@ -237,7 +267,7 @@ class Balance {
     this.p5.line(-this.beamLength / 2, 0, this.beamLength / 2, 0)
 
     // 绘制左盘容器
-    this.p5.stroke(this.plateColor)
+    this.p5.stroke(this.leftPlateColor)
     // this.p5.strokeWeight(2)
     // this.p5.noFill()
 
@@ -249,6 +279,7 @@ class Balance {
     this.p5.line(leftX - this.plateWidth / 2, leftY, leftX - this.plateWidth / 2, leftY - this.plateHeight) // 左边
     this.p5.line(leftX + this.plateWidth / 2, leftY, leftX + this.plateWidth / 2, leftY - this.plateHeight) // 右边
 
+    this.p5.stroke(this.rightPlateColor)
     // 右容器
     const rightX = this.beamLength / 2
     const rightY = 0
@@ -508,7 +539,7 @@ class Ball {
         // 模拟球在容器中的滚动
         if (this.plateReference) {
           // 根据天平的倾斜角度施加侧向力
-          const sideForce = Math.sin(plateAngle) * GRAVITY * 2
+          const sideForce = Math.sin(plateAngle) * GRAVITY * SIDE_FORCE_FACTOR
           this.plateReference.x += sideForce
 
           // 防止球滚出容器边界
@@ -527,7 +558,7 @@ class Ball {
         // 模拟球在容器中的滚动
         if (this.plateReference) {
           // 根据天平的倾斜角度施加侧向力（右盘方向相反）
-          const sideForce = Math.sin(-plateAngle) * GRAVITY * 2
+          const sideForce = Math.sin(-plateAngle) * GRAVITY * SIDE_FORCE_FACTOR
           this.plateReference.x += sideForce
 
           // 防止球滚出容器边界
@@ -793,7 +824,7 @@ class BallGenerator {
   generateBall() {
     // 随机决定球的属性和位置
     const side = this.p5.random() > 0.5 ? -1 : 1
-    const x = 200 * side + this.p5.random(-0.5, 0.5) * 100
+    const x = 200 * side + this.p5.random(-0.5, 0.5) * 80
     const y = -this.p5.height / 2 + 50
     // 增加小球尺寸差异
     const radius = this.p5.random(8, 20)
@@ -835,7 +866,7 @@ function setup(p5: P5CanvasInstance) {
 }
 
 function draw(p5: P5CanvasInstance) {
-  p5.background(30)
+  p5.background(15)
 
   // 移动原点到屏幕中心
   p5.translate(p5.width / 2, p5.height / 2 - 100)
