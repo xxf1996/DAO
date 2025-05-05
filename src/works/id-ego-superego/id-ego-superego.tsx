@@ -83,11 +83,11 @@ class Ripple {
   private color: number[]
   private isFinished: boolean = false
 
-  constructor(private p5: P5CanvasInstance, private x: number, private y: number, private initialRadius: number = 10) {
+  constructor(private p5: P5CanvasInstance, private x: number, private y: number, private initialRadius: number = 50) {
     this.radius = initialRadius
-    this.maxRadius = p5.random(100, 200)
-    this.opacity = p5.random(30, 60)
-    this.speed = p5.random(2, 4)
+    this.maxRadius = p5.random(250, 400)
+    this.opacity = p5.random(20, 40)
+    this.speed = p5.random(4, 8)
 
     // 使用与小球相近的颜色，但更透明
     this.color = [
@@ -100,7 +100,7 @@ class Ripple {
 
   update() {
     this.radius += this.speed
-    this.opacity -= 2
+    this.opacity -= 0.5
 
     if (this.radius > this.maxRadius || this.opacity <= 0) {
       this.isFinished = true
