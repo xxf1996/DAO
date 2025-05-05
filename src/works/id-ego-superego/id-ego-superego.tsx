@@ -13,6 +13,8 @@ const BALANCE_SENSITIVITY = 0.02
 const BALL_RESTITUTION = 0.7
 /** 侧向力系数 */
 const SIDE_FORCE_FACTOR = 5.5
+/** 震动系数 */
+const SHAKING_FACTOR = 1.8
 // 调试模式
 let debugMode = false
 const leftKeywords = [
@@ -71,6 +73,53 @@ const ballColors = [
   [200, 160, 130], // 棕橙色
   [130, 200, 190] // 蓝绿色
 ]
+
+// 涟漪效果类
+class Ripple {
+  private radius: number
+  private maxRadius: number
+  private opacity: number
+  private speed: number
+  private color: number[]
+  private isFinished: boolean = false
+
+  constructor(private p5: P5CanvasInstance, private x: number, private y: number, private initialRadius: number = 10) {
+    this.radius = initialRadius
+    this.maxRadius = p5.random(100, 200)
+    this.opacity = p5.random(30, 60)
+    this.speed = p5.random(2, 4)
+
+    // 使用与小球相近的颜色，但更透明
+    this.color = [
+      p5.random(150, 230),
+      p5.random(150, 230),
+      p5.random(180, 250),
+      this.opacity
+    ]
+  }
+
+  update() {
+    this.radius += this.speed
+    this.opacity -= 2
+
+    if (this.radius > this.maxRadius || this.opacity <= 0) {
+      this.isFinished = true
+    }
+  }
+
+  display() {
+    this.p5.push()
+    this.p5.noFill()
+    this.p5.stroke(this.color[0], this.color[1], this.color[2], this.opacity)
+    this.p5.strokeWeight(2)
+    this.p5.circle(this.x, this.y, this.radius * 2)
+    this.p5.pop()
+  }
+
+  isDone(): boolean {
+    return this.isFinished
+  }
+}
 
 // 天平类
 class Balance {
@@ -221,32 +270,32 @@ class Balance {
   // 添加质量到左盘，并触发震动
   addLeftMass(mass: number, impact: number) {
     this.leftMass += mass
-    this.shake(impact)
+    this.shake(impact * SHAKING_FACTOR)
   }
 
   // 添加质量到右盘，并触发震动
   addRightMass(mass: number, impact: number) {
     this.rightMass += mass
-    this.shake(impact)
+    this.shake(impact * SHAKING_FACTOR)
   }
 
   // 从左盘移除质量
   removeLeftMass(mass: number) {
     this.leftMass = Math.max(0, this.leftMass - mass)
     // 轻微震动表示质量移除
-    this.shake(0.05)
+    this.shake(0.05 * SHAKING_FACTOR)
   }
 
   // 从右盘移除质量
   removeRightMass(mass: number) {
     this.rightMass = Math.max(0, this.rightMass - mass)
     // 轻微震动表示质量移除
-    this.shake(0.05)
+    this.shake(0.05 * SHAKING_FACTOR)
   }
 
   // 添加震动效果
   shake(intensity: number) {
-    this.shakeIntensity = Math.min(this.shakeIntensity + intensity, 0.2)
+    this.shakeIntensity = Math.min(this.shakeIntensity + intensity, 0.35)
   }
 
   // 获取盘子的宽度和高度
@@ -805,12 +854,18 @@ class Ball {
   getMass() {
     return this.mass
   }
+
+  // 修正方法名，避免与实例变量同名
+  isInContainer(): boolean {
+    return this.isContained
+  }
 }
 
 // 球生成器
 class BallGenerator {
   private balls: Ball[] = []
   private nextDropTime = 0
+  private ripples: Ripple[] = [] // 添加涟漪数组
 
   constructor(private p5: P5CanvasInstance) {}
 
@@ -818,20 +873,43 @@ class BallGenerator {
     // 定时生成新球
     if (this.p5.millis() > this.nextDropTime) {
       this.generateBall()
-      this.nextDropTime = this.p5.millis() + this.p5.random(500, 2000)
+      this.nextDropTime = this.p5.millis() + this.p5.random(500, 1500)
     }
 
     // 更新所有球的位置
     for (let i = this.balls.length - 1; i >= 0; i--) {
       const ball = this.balls[i]
       ball.update(balance, this.balls)
+      // 记录小球之前是否已经在盘子中
+      const wasContained = ball.isInContainer()
       ball.checkPlateCollision(balance)
+      // 如果小球刚刚落入容器，创建涟漪效果
+      if (!wasContained && ball.isInContainer()) {
+        const pos = ball.getPosition()
+        this.createRipple(
+          this.p5.random(-50, 50),
+          this.p5.random(-50, 50)
+        )
+      }
 
       // 移除屏幕外的球
       if (ball.isOffScreen()) {
         this.balls.splice(i, 1)
       }
     }
+
+    // 更新所有涟漪并移除已完成的
+    for (let i = this.ripples.length - 1; i >= 0; i--) {
+      this.ripples[i].update()
+      if (this.ripples[i].isDone()) {
+        this.ripples.splice(i, 1)
+      }
+    }
+  }
+
+  // 创建涟漪效果
+  createRipple(x: number, y: number) {
+    this.ripples.push(new Ripple(this.p5, x, y))
   }
 
   generateBall() {
@@ -850,6 +928,12 @@ class BallGenerator {
   }
 
   display() {
+    // 先绘制涟漪，确保它们在球的下方
+    for (const ripple of this.ripples) {
+      ripple.display()
+    }
+
+    // 再绘制所有球
     for (const ball of this.balls) {
       ball.display()
     }
