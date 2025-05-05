@@ -319,7 +319,48 @@ class Balance {
     this.p5.stroke(220)
     this.p5.strokeWeight(3)
     this.p5.line(this.pivotX, this.pivotY, this.pivotX, this.pivotY + 180)
-    this.p5.line(this.pivotX - 120, this.pivotY + 180, this.pivotX + 120, this.pivotY + 180)
+
+    // 根据天平角度计算底座曲线的控制点高度
+    // 角度为正时（右侧下沉），底座呈现苦脸（向下弧）
+    // 角度为负时（左侧下沉），底座呈现笑脸（向上弧）
+    const maxCurvature = 120 // 最大曲率
+    const curvature = this.angle * (maxCurvature / (Math.PI / 5)) // 根据最大倾斜角度缩放
+
+    // 绘制底座曲线 - 分为两段确保中点连接在支架底部
+    this.p5.push()
+    this.p5.noFill()
+    this.p5.stroke(220)
+    this.p5.strokeWeight(3)
+
+    // 左半部分曲线
+    this.p5.beginShape()
+    this.p5.vertex(this.pivotX - 120, this.pivotY + 180)
+    this.p5.quadraticVertex(
+      this.pivotX - 60, this.pivotY + 180 + curvature,
+      this.pivotX, this.pivotY + 180
+    )
+    this.p5.endShape()
+
+    // 右半部分曲线
+    this.p5.beginShape()
+    this.p5.vertex(this.pivotX, this.pivotY + 180)
+    this.p5.quadraticVertex(
+      this.pivotX + 60, this.pivotY + 180 + curvature,
+      this.pivotX + 120, this.pivotY + 180
+    )
+    this.p5.endShape()
+
+    // 调试模式下，显示支架底部连接点
+    if (debugMode) {
+      this.p5.fill(255, 0, 0)
+      this.p5.noStroke()
+      this.p5.ellipse(this.pivotX, this.pivotY + 180, 5, 5)
+    }
+
+    this.p5.pop()
+
+    // 旧的直线底座代码，已被上面的曲线替代
+    // this.p5.line(this.pivotX - 120, this.pivotY + 180, this.pivotX + 120, this.pivotY + 180)
 
     // 绘制天平整体（横梁和容器）
     this.p5.push()
