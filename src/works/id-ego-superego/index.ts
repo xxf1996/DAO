@@ -6,8 +6,8 @@ const work: SourceCodeWorkInfo = {
   type: 'sourceCode',
   alias: 'id-ego-superego',
   name: {
-    en: 'id, ego, superego',
-    zh: '本我、自我和超我'
+    en: '⚖️',
+    zh: '⚖️'
   },
   desc: {
     en: 'The id, ego, and superego are the three components of the human psyche, according to Freud\'s psychoanalysis theory.',
