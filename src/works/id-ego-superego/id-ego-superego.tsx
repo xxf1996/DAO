@@ -1,20 +1,20 @@
 import { useP5 } from '@/hooks/p5'
 import { ReactP5Wrapper, type P5CanvasInstance } from '@p5-wrapper/react'
 import { Tween, Easing, Group } from '@tweenjs/tween.js'
-import type { Vector } from 'p5'
+import type { Color, Vector } from 'p5'
 
 // 物理常量
 const GRAVITY = 0.3
 const FRICTION = 0.98
 const RESTITUTION = 0.6
 // 增加天平灵敏度
-const BALANCE_SENSITIVITY = 0.02
+const BALANCE_SENSITIVITY = 0.016
 // 小球之间的弹性系数
 const BALL_RESTITUTION = 0.7
 /** 侧向力系数 */
 const SIDE_FORCE_FACTOR = 5.5
 /** 震动系数 */
-const SHAKING_FACTOR = 1.8
+const SHAKING_FACTOR = 3
 // 调试模式
 let debugMode = false
 const leftKeywords = [
@@ -62,18 +62,26 @@ const rightKeywords = [
 
 // 增加12个系列配色，适合深色背景，亮度适中，彼此有明显对比
 const ballColors = [
-  [120, 160, 220], // 淡蓝色
-  [220, 120, 170], // 粉红色
-  [160, 220, 140], // 淡绿色
-  [220, 190, 120], // 淡橙色
-  [160, 140, 220], // 淡紫色
-  [220, 150, 120], // 珊瑚色
-  [120, 170, 160], // 青绿色
-  [190, 140, 180], // 淡紫红色
-  [180, 200, 130], // 黄绿色
-  [150, 130, 190], // 蓝紫色
-  [200, 160, 130], // 棕橙色
-  [130, 200, 190] // 蓝绿色
+  '#27374D',
+  '#526D82',
+  '#9DB2BF',
+  '#DDE6ED',
+  '#2F1B41',
+  '#872341',
+  '#BE3144',
+  '#F05941',
+  '#062925',
+  '#044A42',
+  '#3A9188',
+  '#B8E1DD',
+  '#413C69',
+  '#4A47A3',
+  '#AD62AA',
+  '#EAB9C9',
+  '#ABC270',
+  '#FEC868',
+  '#FDA769',
+  '#473C33'
 ]
 
 // 涟漪效果类
@@ -149,8 +157,8 @@ class Balance {
     this.beamHeight = 5
     this.plateWidth = 200
     this.plateHeight = 100 // 盘子深度
-    this.leftPlateColor = p5.color('#ff3366')
-    this.rightPlateColor = p5.color('#3366ff')
+    this.leftPlateColor = p5.color('#f54954')
+    this.rightPlateColor = p5.color('#1d76eb')
   }
 
   private animation() {
@@ -459,10 +467,16 @@ class Balance {
 
     this.p5.pop()
 
-    // 绘制支点
-    this.p5.fill(240)
+    // 绘制支点阴影
     this.p5.noStroke()
-    this.p5.ellipse(this.pivotX + shakeX, this.pivotY + shakeY, 12, 12)
+    this.p5.fill(30, 80) // 深色，透明度80
+    this.p5.ellipse(this.pivotX + shakeX, this.pivotY + shakeY + 6, 28, 10) // 阴影稍微下移，拉宽
+
+    // 绘制支点
+    this.p5.stroke(160)
+    this.p5.strokeWeight(1)
+    this.p5.fill(220)
+    this.p5.ellipse(this.pivotX + shakeX, this.pivotY + shakeY, 15)
 
     this.p5.pop()
   }
@@ -574,7 +588,7 @@ class Balance {
 class Ball {
   private readonly radius: number
   private readonly mass: number
-  private readonly color: number[]
+  private readonly color: Color
   private position: Vector
   private velocity: Vector
   private acceleration: Vector
@@ -594,7 +608,7 @@ class Ball {
     this.radius = radius
     this.mass = radius * radius * 0.01 // 质量与半径平方成正比
     // 从预定义的系列色中随机选择一个颜色
-    this.color = [...ballColors[Math.floor(p5.random(ballColors.length))]]
+    this.color = p5.color(ballColors[Math.floor(p5.random(ballColors.length))])
     // 设置创建时间和随机的消失时间（3-10秒）
     this.creationTime = p5.millis()
     this.disappearTime = this.creationTime + p5.random(5000, 15000)
@@ -860,11 +874,13 @@ class Ball {
     if (this.isContained && timeLeft < 1000) {
       // 根据剩余时间调整透明度
       const alpha = Math.max(50, Math.min(255, timeLeft / 1000 * 255))
-      this.p5.fill(this.color[0], this.color[1], this.color[2], alpha)
+      this.color.setAlpha(alpha)
+      this.p5.fill(this.color)
 
       // 如果非常接近消失时间，添加闪烁效果
       if (timeLeft < 500 && Math.random() > 0.5) {
-        this.p5.fill(this.color[0], this.color[1], this.color[2], 50)
+        this.color.setAlpha(50)
+        this.p5.fill(this.color)
       }
     } else {
       this.p5.fill(this.color)
@@ -875,8 +891,21 @@ class Ball {
 
     // 绘制关键词
     if (this.keyword && this.keyword.length > 0) {
-      // 设置文本样式
-      this.p5.fill(0) // 黑色文字
+      // 计算颜色亮度，根据亮度选择黑色或白色文字
+      const r = this.p5.red(this.color)
+      const g = this.p5.green(this.color)
+      const b = this.p5.blue(this.color)
+
+      // 计算颜色亮度 (基于人眼对RGB敏感度的加权平均)
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b)
+
+      // 如果背景色亮度高，使用深色文字，否则使用浅色文字
+      if (luminance > 128) {
+        this.p5.fill(40) // 深色文字
+      } else {
+        this.p5.fill(210) // 浅色文字
+      }
+
       this.p5.textAlign(this.p5.CENTER, this.p5.CENTER)
 
       // 根据球体大小调整字体大小
@@ -916,7 +945,7 @@ class BallGenerator {
     // 定时生成新球
     if (this.p5.millis() > this.nextDropTime) {
       this.generateBall()
-      this.nextDropTime = this.p5.millis() + this.p5.random(500, 1500)
+      this.nextDropTime = this.p5.millis() + this.p5.random(500, 1000)
     }
 
     // 更新所有球的位置
@@ -928,10 +957,9 @@ class BallGenerator {
       ball.checkPlateCollision(balance)
       // 如果小球刚刚落入容器，创建涟漪效果
       if (!wasContained && ball.isInContainer()) {
-        const pos = ball.getPosition()
         this.createRipple(
-          this.p5.random(-50, 50),
-          this.p5.random(-50, 50)
+          this.p5.random(-200, 200),
+          this.p5.random(-200, 200)
         )
       }
 
