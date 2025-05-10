@@ -41,6 +41,14 @@ const leftKeywords = [
   '抑郁',
   '绝望',
   '麻木',
+  'Libido',
+  '攻击',
+  '投射',
+  '原始',
+  '享乐',
+  '固执',
+  '自恋',
+  '自负'
 ]
 const rightKeywords = [
   '慢',
@@ -57,7 +65,17 @@ const rightKeywords = [
   '行动',
   '😊',
   '迭代',
-  '进化'
+  '进化',
+  '反思',
+  '完美',
+  '控制',
+  '约束',
+  '良心',
+  '正义',
+  '道德',
+  '责任',
+  '承诺',
+  '信任',
 ]
 
 // 增加12个系列配色，适合深色背景，亮度适中，彼此有明显对比
@@ -600,6 +618,7 @@ class Ball {
   private disappearTime: number // 小球消失时间
   private creationTime: number // 小球创建时间
   private keyword: string // 显示在小球内的关键词
+  private stuckTimeout: number // 卡住小球的超时时间
 
   constructor(private p5: P5CanvasInstance, x: number, y: number, radius: number, keyword: string = '') {
     this.position = p5.createVector(x, y)
@@ -609,9 +628,11 @@ class Ball {
     this.mass = radius * radius * 0.01 // 质量与半径平方成正比
     // 从预定义的系列色中随机选择一个颜色
     this.color = p5.color(ballColors[Math.floor(p5.random(ballColors.length))])
-    // 设置创建时间和随机的消失时间（3-10秒）
+    // 设置创建时间和随机的消失时间
     this.creationTime = p5.millis()
     this.disappearTime = this.creationTime + p5.random(5000, 15000)
+    // 设置卡住球的超时时间，创建5秒后
+    this.stuckTimeout = this.creationTime + 5000
     // 设置关键词
     this.keyword = keyword
   }
@@ -643,8 +664,15 @@ class Ball {
         balance.removeRightMass(ballMass)
       }
 
-      // 将小球移到画面外，等待被清除
-      this.position.y = this.p5.height + this.radius * 2
+      // 标记小球为已消失，通过设置一个特殊标记
+      this.position.y = this.p5.height * 10 // 设置一个极大值确保isOffScreen()返回true
+      return
+    }
+
+    // 如果小球创建超过5秒，既没有进入容器也没有离开屏幕，则强制清除
+    if (!this.isContained && this.p5.millis() > this.stuckTimeout && !this.isOffScreen()) {
+      // 标记为已消失，将其移到画面外
+      this.position.y = this.p5.height * 10 // 确保会被移除
       return
     }
 
@@ -920,7 +948,8 @@ class Ball {
   }
 
   isOffScreen() {
-    return this.position.y > this.p5.height + 100 && !this.isContained
+    // 检查小球是否离开屏幕或者被标记为需要移除
+    return this.position.y > this.p5.height + 100 || this.position.y > this.p5.height * 5
   }
 
   getMass() {
@@ -938,13 +967,18 @@ class BallGenerator {
   private balls: Ball[] = []
   private nextDropTime = 0
   private ripples: Ripple[] = [] // 添加涟漪数组
+  private maxBalls = 50 // 限制最大小球数量
+  private maxRipples = 20 // 限制最大涟漪数量
 
   constructor(private p5: P5CanvasInstance) {}
 
   update(balance: Balance) {
     // 定时生成新球
     if (this.p5.millis() > this.nextDropTime) {
-      this.generateBall()
+      // 小球数量未超过限制时才生成新球
+      if (this.balls.length < this.maxBalls) {
+        this.generateBall()
+      }
       this.nextDropTime = this.p5.millis() + this.p5.random(500, 1000)
     }
 
@@ -952,6 +986,13 @@ class BallGenerator {
     for (let i = this.balls.length - 1; i >= 0; i--) {
       const ball = this.balls[i]
       ball.update(balance, this.balls)
+
+      // 移除屏幕外的球或者已经过期的球
+      if (ball.isOffScreen()) {
+        this.balls.splice(i, 1)
+        continue // 跳过后续处理
+      }
+
       // 记录小球之前是否已经在盘子中
       const wasContained = ball.isInContainer()
       ball.checkPlateCollision(balance)
@@ -962,11 +1003,6 @@ class BallGenerator {
           this.p5.random(-200, 200)
         )
       }
-
-      // 移除屏幕外的球
-      if (ball.isOffScreen()) {
-        this.balls.splice(i, 1)
-      }
     }
 
     // 更新所有涟漪并移除已完成的
@@ -976,11 +1012,19 @@ class BallGenerator {
         this.ripples.splice(i, 1)
       }
     }
+
+    // 如果debug模式下，显示统计信息
+    if (debugMode) {
+      console.log(`Balls: ${this.balls.length}, Ripples: ${this.ripples.length}`)
+    }
   }
 
   // 创建涟漪效果
   createRipple(x: number, y: number) {
-    this.ripples.push(new Ripple(this.p5, x, y))
+    // 限制涟漪数量
+    if (this.ripples.length < this.maxRipples) {
+      this.ripples.push(new Ripple(this.p5, x, y))
+    }
   }
 
   generateBall() {
