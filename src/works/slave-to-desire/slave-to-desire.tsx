@@ -117,8 +117,15 @@ class StickPerson {
   createBubble() {
     // 创建泡泡在细管末端位置
     const handOffset = Math.sin(this.blowingPhase) * 2
-    const toolEndX = this.position.x + 50 // 管子更长
-    const toolEndY = this.position.y - this.height * 0.5 + handOffset
+    // 嘴部位置和管子末端位置
+    const mouthX = this.position.x + 8
+    const mouthY = this.position.y - this.height * 0.65
+    // 手的位置
+    const handX = mouthX + 15
+    const handY = mouthY + 10 + handOffset
+    // 管子末端位置（超出手一点）
+    const toolEndX = handX + 5
+    const toolEndY = handY
     this.bubble = new Bubble(
       this.p5,
       toolEndX,
@@ -163,14 +170,22 @@ class StickPerson {
 
     // 手臂
     if (this.state === PersonState.BLOWING) {
-      // 吹泡泡状态，一只手臂举着吹泡泡工具
+      // 吹泡泡状态，一只手臂拿着吹泡泡工具放在嘴边
       // 手臂位置随着吹泡泡动作轻微摆动
       const handOffset = Math.sin(this.blowingPhase) * 2
 
-      // 右手举着吹泡泡工具
+      // 嘴部位置
+      const mouthX = this.position.x + 8
+      const mouthY = this.position.y - this.height * 0.65
+
+      // 手的位置（拿着管子靠近嘴边，但更向外一些）
+      const handX = mouthX + 15 // 向外移动手的位置
+      const handY = mouthY + 10 + handOffset
+
+      // 右手举着吹泡泡工具靠近嘴边
       this.p5.line(
         this.position.x, this.position.y - this.height * 0.5,
-        this.position.x + 25, this.position.y - this.height * 0.5 + handOffset
+        handX, handY
       )
 
       // 左手放在腿上
@@ -179,37 +194,51 @@ class StickPerson {
         this.position.x - 20, this.position.y - this.height * 0.3
       )
 
-      // 绘制吹泡泡工具（长细管子）
-      this.p5.stroke(180, 180, 220)
-      this.p5.strokeWeight(1.5)
+      // 移除原来的圆形手表示，用线条表示手指
+      this.p5.stroke(255)
+      // 绘制简单的手指（几条小线）
+      const fingerLength = 3
+      // 拇指
       this.p5.line(
-        this.position.x + 25, this.position.y - this.height * 0.5 + handOffset,
-        this.position.x + 50, this.position.y - this.height * 0.5 + handOffset
+        handX, handY,
+        handX - 2, handY - fingerLength
+      )
+      // 其他手指
+      this.p5.line(
+        handX, handY,
+        handX + fingerLength, handY - 2
       )
 
-      // 管子前端稍微加粗
-      this.p5.strokeWeight(2)
-      this.p5.stroke(150, 150, 200)
+      // 绘制吹泡泡工具（长细管子）- 从嘴到手，并超出手一点
+      this.p5.stroke(180, 180, 220)
+      this.p5.strokeWeight(1.5)
+
+      // 管子超出手一点的末端
+      const toolEndX = handX + 10
+      const toolEndY = handY + 10
+
+      // 只保留一段管子，从嘴边到手边，并超出手一点
       this.p5.line(
-        this.position.x + 45, this.position.y - this.height * 0.5 + handOffset,
-        this.position.x + 50, this.position.y - this.height * 0.5 + handOffset
+        mouthX, mouthY,
+        toolEndX, toolEndY
       )
+      this.bubble?.setPosition(toolEndX, toolEndY)
 
       // 绘制嘴巴（随着吹泡泡动作变化）
       this.p5.stroke(255)
       this.p5.strokeWeight(2)
       if (this.bubble) {
-        // 吹气状态的嘴巴
+        // 吹气状态的嘴巴 - 圆形
         this.p5.ellipse(
-          this.position.x + 8,
-          this.position.y - this.height * 0.65,
+          mouthX - 4,
+          mouthY,
           5, 4
         )
       } else {
         // 普通状态的嘴巴
         this.p5.line(
-          this.position.x, this.position.y - this.height * 0.65,
-          this.position.x + 8, this.position.y - this.height * 0.65
+          this.position.x, mouthY,
+          mouthX - 3, mouthY
         )
       }
     } else {
