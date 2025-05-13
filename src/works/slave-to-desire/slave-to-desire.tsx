@@ -10,6 +10,7 @@ const BUBBLE_MIN_GROW_SPEED = 0.5
 const BUBBLE_MAX_GROW_SPEED = 1.5
 const BUBBLE_FLOAT_SPEED = 1
 const FLOOR_HEIGHT = 150 // 距离底部的地面高度
+const PERSON_HEIGHT = 100 // 将人物高度从60增加到100
 
 // 人物状态枚举
 enum PersonState {
@@ -28,14 +29,17 @@ class StickPerson {
   private animations = new Group()
   private bubble: Bubble | null = null
   private nextBubbleTime: number = 0
+  private blowingPhase: number = 0 // 用于动画吹泡泡动作的阶段
+  private blowingTool: Vector // 吹泡泡工具的位置
 
   constructor(private p5: P5CanvasInstance, x: number, y: number) {
     this.position = p5.createVector(x, y)
     this.velocity = p5.createVector(0, 0)
     this.acceleration = p5.createVector(0, 0)
-    this.height = 60
+    this.height = PERSON_HEIGHT
     this.state = PersonState.BLOWING
     this.nextBubbleTime = p5.millis()
+    this.blowingTool = p5.createVector(x + 15, y - this.height * 0.5) // 吹泡泡工具初始位置
   }
 
   applyForce(force: Vector) {
@@ -48,6 +52,9 @@ class StickPerson {
     // 根据状态处理不同的行为
     switch (this.state) {
       case PersonState.BLOWING:
+        // 更新吹泡泡动作的阶段
+        this.blowingPhase = (this.blowingPhase + 0.05) % (2 * Math.PI)
+
         // 正在吹泡泡，创建泡泡
         if (this.p5.millis() > this.nextBubbleTime && !this.bubble) {
           this.createBubble()
@@ -61,7 +68,7 @@ class StickPerson {
           if (this.bubble.getRadius() > this.height * 1.2) {
             this.state = PersonState.FLOATING
             // 泡泡位置固定为人物头部的位置
-            this.bubble.setPosition(this.position.x, this.position.y - this.height * 0.7)
+            this.bubble.setPosition(this.position.x, this.position.y - this.height * 0.6)
           }
         }
         break
@@ -108,15 +115,16 @@ class StickPerson {
   }
 
   createBubble() {
-    // 创建泡泡在人物嘴部位置
-    const mouthX = this.position.x + 5
-    const mouthY = this.position.y - this.height * 0.6
+    // 创建泡泡在细管末端位置
+    const handOffset = Math.sin(this.blowingPhase) * 2
+    const toolEndX = this.position.x + 50 // 管子更长
+    const toolEndY = this.position.y - this.height * 0.5 + handOffset
     this.bubble = new Bubble(
       this.p5,
-      mouthX,
-      mouthY,
-      5, // 初始半径
-      this.p5.random(BUBBLE_MIN_GROW_SPEED, BUBBLE_MAX_GROW_SPEED) // 随机成长速度
+      toolEndX,
+      toolEndY,
+      2, // 初始半径更小
+      this.p5.random(BUBBLE_MIN_GROW_SPEED, BUBBLE_MAX_GROW_SPEED) * 0.6 // 降低成长速度，让泡泡增长更明显
     )
   }
 
@@ -143,47 +151,104 @@ class StickPerson {
     this.p5.strokeWeight(2)
     this.p5.noFill()
 
-    // 绘制人物
+    // 绘制人物（坐姿）
     // 头部
-    this.p5.circle(this.position.x, this.position.y - this.height * 0.8, 20)
+    this.p5.circle(this.position.x, this.position.y - this.height * 0.7, 30) // 头部尺寸更大
 
     // 身体
     this.p5.line(
-      this.position.x, this.position.y - this.height * 0.7,
+      this.position.x, this.position.y - this.height * 0.6,
       this.position.x, this.position.y - this.height * 0.3
     )
 
     // 手臂
     if (this.state === PersonState.BLOWING) {
-      // 吹泡泡状态，一只手臂向上
+      // 吹泡泡状态，一只手臂举着吹泡泡工具
+      // 手臂位置随着吹泡泡动作轻微摆动
+      const handOffset = Math.sin(this.blowingPhase) * 2
+
+      // 右手举着吹泡泡工具
       this.p5.line(
-        this.position.x, this.position.y - this.height * 0.6,
-        this.position.x + 15, this.position.y - this.height * 0.7
+        this.position.x, this.position.y - this.height * 0.5,
+        this.position.x + 25, this.position.y - this.height * 0.5 + handOffset
       )
+
+      // 左手放在腿上
       this.p5.line(
-        this.position.x, this.position.y - this.height * 0.6,
-        this.position.x - 15, this.position.y - this.height * 0.5
+        this.position.x, this.position.y - this.height * 0.5,
+        this.position.x - 20, this.position.y - this.height * 0.3
       )
+
+      // 绘制吹泡泡工具（长细管子）
+      this.p5.stroke(180, 180, 220)
+      this.p5.strokeWeight(1.5)
+      this.p5.line(
+        this.position.x + 25, this.position.y - this.height * 0.5 + handOffset,
+        this.position.x + 50, this.position.y - this.height * 0.5 + handOffset
+      )
+
+      // 管子前端稍微加粗
+      this.p5.strokeWeight(2)
+      this.p5.stroke(150, 150, 200)
+      this.p5.line(
+        this.position.x + 45, this.position.y - this.height * 0.5 + handOffset,
+        this.position.x + 50, this.position.y - this.height * 0.5 + handOffset
+      )
+
+      // 绘制嘴巴（随着吹泡泡动作变化）
+      this.p5.stroke(255)
+      this.p5.strokeWeight(2)
+      if (this.bubble) {
+        // 吹气状态的嘴巴
+        this.p5.ellipse(
+          this.position.x + 8,
+          this.position.y - this.height * 0.65,
+          5, 4
+        )
+      } else {
+        // 普通状态的嘴巴
+        this.p5.line(
+          this.position.x, this.position.y - this.height * 0.65,
+          this.position.x + 8, this.position.y - this.height * 0.65
+        )
+      }
     } else {
       // 漂浮或下落状态，两只手臂向两侧
       this.p5.line(
-        this.position.x, this.position.y - this.height * 0.6,
-        this.position.x + 15, this.position.y - this.height * 0.5
+        this.position.x, this.position.y - this.height * 0.5,
+        this.position.x + 25, this.position.y - this.height * 0.4
       )
       this.p5.line(
-        this.position.x, this.position.y - this.height * 0.6,
-        this.position.x - 15, this.position.y - this.height * 0.5
+        this.position.x, this.position.y - this.height * 0.5,
+        this.position.x - 25, this.position.y - this.height * 0.4
+      )
+
+      // 闭合的嘴巴
+      this.p5.line(
+        this.position.x, this.position.y - this.height * 0.65,
+        this.position.x + 5, this.position.y - this.height * 0.65
       )
     }
 
-    // 腿部
+    // 腿部（坐姿）
+    // 大腿
     this.p5.line(
       this.position.x, this.position.y - this.height * 0.3,
-      this.position.x + 10, this.position.y
+      this.position.x + 30, this.position.y
     )
     this.p5.line(
       this.position.x, this.position.y - this.height * 0.3,
-      this.position.x - 10, this.position.y
+      this.position.x - 30, this.position.y
+    )
+
+    // 小腿
+    this.p5.line(
+      this.position.x + 30, this.position.y,
+      this.position.x + 25, this.position.y + this.height * 0.3
+    )
+    this.p5.line(
+      this.position.x - 30, this.position.y,
+      this.position.x - 25, this.position.y + this.height * 0.3
     )
 
     // 显示泡泡
@@ -201,6 +266,7 @@ class Bubble {
   private radius: number
   private growSpeed: number
   private color: number[]
+  private growthPhase: number = 0 // 用于控制生长动画
 
   constructor(private p5: P5CanvasInstance, x: number, y: number, radius: number, growSpeed: number) {
     this.position = p5.createVector(x, y)
@@ -208,11 +274,13 @@ class Bubble {
     this.growSpeed = growSpeed
     // 使用半透明的蓝色调
     this.color = [200, 220, 255, 100]
+    this.growthPhase = 0
   }
 
   update() {
-    // 泡泡增长
-    this.radius += this.growSpeed
+    // 泡泡增长，添加轻微的波动效果
+    this.growthPhase += 0.1
+    this.radius += this.growSpeed * (1 + Math.sin(this.growthPhase) * 0.1)
   }
 
   float() {
@@ -346,8 +414,8 @@ function setup(p5: P5CanvasInstance) {
   p5.colorMode(p5.RGB)
   p5.ellipseMode(p5.CENTER)
 
-  // 创建人物在地面上
-  person = new StickPerson(p5, 0, p5.height / 2 - FLOOR_HEIGHT)
+  // 创建人物坐在地面上
+  person = new StickPerson(p5, 0, p5.height / 2 - FLOOR_HEIGHT + 40) // 调整位置以适应坐姿
 
   // 创建涟漪管理器
   rippleManager = new RippleManager(p5)
