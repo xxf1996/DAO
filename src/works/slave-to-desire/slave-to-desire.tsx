@@ -11,6 +11,19 @@ const BUBBLE_MAX_GROW_SPEED = 1.5
 const BUBBLE_FLOAT_SPEED = 1
 const FLOOR_HEIGHT = 150 // 距离底部的地面高度
 const PERSON_HEIGHT = 100 // 将人物高度从60增加到100
+const COLOR_INVERSION_DURATION = 1.0 // 颜色反转的过渡时间（秒）
+const BURST_ANIMATION_DURATION = 0.8 // 爆炸动画持续时间（秒）
+
+// 全局状态
+let colorInversionProgress = 0 // 颜色反转的进度 (0-1)
+let burstEffect = {
+  active: false,
+  progress: 0,
+  x: 0,
+  y: 0,
+  radius: 0,
+  startTime: 0
+} // 爆炸效果状态
 
 // 人物状态枚举
 enum PersonState {
@@ -31,6 +44,8 @@ class StickPerson {
   private nextBubbleTime: number = 0
   private blowingPhase: number = 0 // 用于动画吹泡泡动作的阶段
   private blowingTool: Vector // 吹泡泡工具的位置
+  private colorInversionTarget: number = 0 // 目标颜色反转值
+  private lastStateChange: number = 0 // 上次状态变化的时间
 
   constructor(private p5: P5CanvasInstance, x: number, y: number) {
     this.position = p5.createVector(x, y)
@@ -40,6 +55,7 @@ class StickPerson {
     this.state = PersonState.BLOWING
     this.nextBubbleTime = p5.millis()
     this.blowingTool = p5.createVector(x + 15, y - this.height * 0.5) // 吹泡泡工具初始位置
+    this.lastStateChange = p5.millis()
   }
 
   applyForce(force: Vector) {
@@ -48,6 +64,9 @@ class StickPerson {
 
   update() {
     this.animations.update(performance.now())
+
+    // 更新颜色反转进度
+    this.updateColorInversion()
 
     // 根据状态处理不同的行为
     switch (this.state) {
@@ -69,6 +88,9 @@ class StickPerson {
             this.state = PersonState.FLOATING
             // 泡泡位置固定为人物头部的位置
             this.bubble.setPosition(this.position.x, this.position.y - this.height * 0.6)
+            // 状态变化，开始颜色反转
+            this.colorInversionTarget = 1
+            this.lastStateChange = this.p5.millis()
           }
         }
         break
@@ -113,11 +135,26 @@ class StickPerson {
           this.state = PersonState.BLOWING
           // 设置下一次吹泡泡的时间
           this.nextBubbleTime = this.p5.millis() + this.p5.random(500, 2000)
+          this.lastStateChange = this.p5.millis()
         }
 
         // 重置加速度
         this.acceleration.mult(0)
         break
+    }
+  }
+
+  updateColorInversion() {
+    const elapsedTime = (this.p5.millis() - this.lastStateChange) / 1000 // 转换为秒
+    if (this.state === PersonState.FLOATING) {
+      // 当漂浮时，逐渐反转颜色
+      colorInversionProgress = Math.min(elapsedTime / COLOR_INVERSION_DURATION, 1)
+    } else if (this.state === PersonState.FALLING) {
+      // 当下落时，逐渐恢复颜色
+      colorInversionProgress = Math.max(1 - elapsedTime / COLOR_INVERSION_DURATION, 0)
+    } else if (this.state === PersonState.BLOWING) {
+      // 确保在吹泡泡状态颜色完全恢复
+      colorInversionProgress = 0
     }
   }
 
@@ -146,13 +183,27 @@ class StickPerson {
     if (this.bubble) {
       // 创建泡泡破裂效果
       const bubblePos = this.bubble.getPosition()
-      rippleManager.createRipple(bubblePos.x, bubblePos.y, this.bubble.getRadius())
+      const bubbleRadius = this.bubble.getRadius()
+
+      // 创建爆炸效果
+      burstEffect = {
+        active: true,
+        progress: 0,
+        x: bubblePos.x,
+        y: bubblePos.y,
+        radius: bubbleRadius,
+        startTime: this.p5.millis()
+      }
+
+      // 创建涟漪效果
+      rippleManager.createRipple(bubblePos.x, bubblePos.y, bubbleRadius)
 
       // 删除泡泡
       this.bubble = null
 
       // 改变状态为下落
       this.state = PersonState.FALLING
+      this.lastStateChange = this.p5.millis()
 
       // 给予向下的初始速度
       this.velocity = this.p5.createVector(this.p5.random(-1, 1), 1)
@@ -161,7 +212,15 @@ class StickPerson {
 
   display() {
     this.p5.push()
-    this.p5.stroke(255)
+
+    // 根据颜色反转进度计算当前颜色
+    const strokeColor = this.p5.lerpColor(
+      this.p5.color(255), // 原始颜色：白色
+      this.p5.color(20), // 反转后颜色：接近黑色
+      colorInversionProgress
+    )
+
+    this.p5.stroke(strokeColor)
     this.p5.strokeWeight(2)
     this.p5.noFill()
 
@@ -202,7 +261,7 @@ class StickPerson {
       )
 
       // 移除原来的圆形手表示，用线条表示手指
-      this.p5.stroke(255)
+      this.p5.stroke(strokeColor)
       // 绘制简单的手指（几条小线）
       const fingerLength = 3
       // 拇指
@@ -217,7 +276,12 @@ class StickPerson {
       )
 
       // 绘制吹泡泡工具（长细管子）- 从嘴到手，并超出手一点
-      this.p5.stroke(180, 180, 220)
+      const toolColor = this.p5.lerpColor(
+        this.p5.color(180, 180, 220),
+        this.p5.color(50, 50, 20),
+        colorInversionProgress
+      )
+      this.p5.stroke(toolColor)
       this.p5.strokeWeight(1.5)
 
       // 管子超出手一点的末端
@@ -232,7 +296,7 @@ class StickPerson {
       this.bubble?.setPosition(toolEndX, toolEndY)
 
       // 绘制嘴巴（随着吹泡泡动作变化）
-      this.p5.stroke(255)
+      this.p5.stroke(strokeColor)
       this.p5.strokeWeight(2)
       if (this.bubble) {
         // 吹气状态的嘴巴 - 圆形
@@ -342,12 +406,26 @@ class Bubble {
     this.p5.push()
     // 绘制泡泡
     this.p5.noFill()
-    this.p5.stroke(this.color)
+
+    // 根据颜色反转进度计算泡泡颜色
+    const bubbleColor = this.p5.lerpColor(
+      this.p5.color(this.color[0], this.color[1], this.color[2], this.color[3]),
+      this.p5.color(50, 30, 20, this.color[3]),
+      colorInversionProgress
+    )
+
+    this.p5.stroke(bubbleColor)
     this.p5.strokeWeight(1.5)
     this.p5.circle(this.position.x, this.position.y, this.radius * 2)
 
     // 绘制泡泡上的高光
-    this.p5.stroke(255, 255, 255, 150)
+    const highlightColor = this.p5.lerpColor(
+      this.p5.color(255, 255, 255, 150),
+      this.p5.color(50, 50, 50, 150),
+      colorInversionProgress
+    )
+
+    this.p5.stroke(highlightColor)
     this.p5.arc(
       this.position.x - this.radius * 0.3,
       this.position.y - this.radius * 0.3,
@@ -407,7 +485,15 @@ class Ripple {
   display() {
     this.p5.push()
     this.p5.noFill()
-    this.p5.stroke(this.color[0], this.color[1], this.color[2], this.opacity)
+
+    // 根据颜色反转进度计算当前涟漪颜色
+    const rippleColor = this.p5.lerpColor(
+      this.p5.color(this.color[0], this.color[1], this.color[2], this.opacity),
+      this.p5.color(50, 30, 20, this.opacity),
+      colorInversionProgress
+    )
+
+    this.p5.stroke(rippleColor)
     this.p5.strokeWeight(2)
     this.p5.circle(this.x, this.y, this.radius * 2)
 
@@ -417,7 +503,15 @@ class Ripple {
       const distance = this.p5.random(this.radius * 0.8, this.radius * 1.2)
       const x = this.x + Math.cos(angle) * distance
       const y = this.y + Math.sin(angle) * distance
-      this.p5.stroke(this.color[0], this.color[1], this.color[2], this.opacity * 1.5)
+
+      // 小点也应用颜色反转
+      const dotColor = this.p5.lerpColor(
+        this.p5.color(this.color[0], this.color[1], this.color[2], this.opacity * 1.5),
+        this.p5.color(50, 30, 20, this.opacity * 1.5),
+        colorInversionProgress
+      )
+
+      this.p5.stroke(dotColor)
       this.p5.point(x, y)
     }
 
@@ -474,14 +568,28 @@ function setup(p5: P5CanvasInstance) {
 }
 
 function draw(p5: P5CanvasInstance) {
-  // 深色背景
-  p5.background(20)
+  // 根据颜色反转进度计算背景颜色
+  const bgColor = p5.lerpColor(
+    p5.color(20), // 原始背景颜色：深色
+    p5.color(235), // 反转后背景颜色：浅色
+    colorInversionProgress
+  )
+
+  // 根据颜色反转进度计算地面颜色
+  const floorColor = p5.lerpColor(
+    p5.color(60), // 原始地面颜色
+    p5.color(110), // 反转后地面颜色
+    colorInversionProgress
+  )
+
+  // 设置背景颜色
+  p5.background(bgColor)
 
   // 移动原点到屏幕中心
   p5.translate(p5.width / 2, p5.height / 2)
 
   // 绘制地面
-  p5.stroke(60)
+  p5.stroke(floorColor)
   p5.strokeWeight(2)
   p5.line(-p5.width / 2, p5.height / 2 - FLOOR_HEIGHT, p5.width / 2, p5.height / 2 - FLOOR_HEIGHT)
 
@@ -492,6 +600,69 @@ function draw(p5: P5CanvasInstance) {
   // 更新和显示人物
   person.update()
   person.display()
+
+  // 更新爆炸效果
+  updateBurstEffect(p5)
+
+  // 绘制爆炸效果
+  drawBurstEffect(p5)
+}
+
+// 更新爆炸效果
+function updateBurstEffect(p5: P5CanvasInstance) {
+  if (burstEffect.active) {
+    const elapsedTime = (p5.millis() - burstEffect.startTime) / 1000
+    burstEffect.progress = Math.min(elapsedTime / BURST_ANIMATION_DURATION, 1)
+
+    if (burstEffect.progress >= 1) {
+      burstEffect.active = false
+    }
+  }
+}
+
+// 绘制爆炸效果
+function drawBurstEffect(p5: P5CanvasInstance) {
+  if (burstEffect.active) {
+    p5.push()
+    p5.noFill()
+
+    // 根据颜色反转进度计算颜色
+    const burstColor = p5.lerpColor(
+      p5.color(200, 220, 255, 100 * (1 - burstEffect.progress)),
+      p5.color(50, 30, 20, 100 * (1 - burstEffect.progress)),
+      colorInversionProgress
+    )
+
+    p5.stroke(burstColor)
+    p5.strokeWeight(1.5)
+
+    // 左右分离的效果
+    const separationDistance = burstEffect.radius * 2 * burstEffect.progress
+
+    // 绘制左半部分
+    p5.arc(
+      burstEffect.x - separationDistance / 2,
+      burstEffect.y,
+      burstEffect.radius * 2,
+      burstEffect.radius * 2,
+      p5.PI * 0.5,
+      p5.PI * 1.5,
+      p5.OPEN
+    )
+
+    // 绘制右半部分
+    p5.arc(
+      burstEffect.x + separationDistance / 2,
+      burstEffect.y,
+      burstEffect.radius * 2,
+      burstEffect.radius * 2,
+      p5.PI * 1.5,
+      p5.PI * 2.5,
+      p5.OPEN
+    )
+
+    p5.pop()
+  }
 }
 
 function SlaveToDesire() {
