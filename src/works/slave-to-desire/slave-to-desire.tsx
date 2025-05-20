@@ -65,7 +65,7 @@ class StickPerson {
           this.bubble.update()
 
           // 检查泡泡是否足够大，可以包裹人物
-          if (this.bubble.getRadius() > this.height * 1.2) {
+          if (this.bubble.getRadius() > this.height * 1.2 && !this.bubble.isGrowing) {
             this.state = PersonState.FLOATING
             // 泡泡位置固定为人物头部的位置
             this.bubble.setPosition(this.position.x, this.position.y - this.height * 0.6)
@@ -214,8 +214,8 @@ class StickPerson {
       this.p5.strokeWeight(1.5)
 
       // 管子超出手一点的末端
-      const toolEndX = handX + 10
-      const toolEndY = handY + 10
+      const toolEndX = handX + 5
+      const toolEndY = handY + 5
 
       // 只保留一段管子，从嘴边到手边，并超出手一点
       this.p5.line(
@@ -296,10 +296,15 @@ class Bubble {
   private growSpeed: number
   private color: number[]
   private growthPhase: number = 0 // 用于控制生长动画
+  private initialRadius: number // 存储初始半径
+  private targetRadius: number // 目标半径
+  private growProgress: number = 0 // 生长进度
 
   constructor(private p5: P5CanvasInstance, x: number, y: number, radius: number, growSpeed: number) {
     this.position = p5.createVector(x, y)
     this.radius = radius
+    this.initialRadius = radius // 保存初始半径
+    this.targetRadius = p5.random(100, 150) // 设置目标半径
     this.growSpeed = growSpeed
     // 使用半透明的蓝色调
     this.color = [200, 220, 255, 100]
@@ -307,9 +312,16 @@ class Bubble {
   }
 
   update() {
-    // 泡泡增长，添加轻微的波动效果
+    // 使用ease-in曲线更新泡泡大小
     this.growthPhase += 0.1
-    this.radius += this.growSpeed * (1 + Math.sin(this.growthPhase) * 0.1)
+    // 增加生长进度，但保持在0-1范围内
+    this.growProgress = Math.min(this.growProgress + (this.growSpeed * 0.005), 1)
+    // 使用Easing.Cubic.In函数创建ease-in效果
+    const easedProgress = Easing.Cubic.InOut(this.growProgress)
+    // 计算当前半径 = 初始半径 + (目标增长 * 缓动进度)
+    this.radius = this.initialRadius + (this.targetRadius - this.initialRadius) * easedProgress
+    // 添加轻微的波动效果
+    this.radius *= (1 + Math.sin(this.growthPhase) * 0.05)
   }
 
   float() {
@@ -352,6 +364,10 @@ class Bubble {
   setPosition(x: number, y: number) {
     this.position.x = x
     this.position.y = y
+  }
+
+  get isGrowing() {
+    return this.growProgress < 1
   }
 }
 
