@@ -13,6 +13,9 @@ const FLOOR_HEIGHT = 150 // 距离底部的地面高度
 const PERSON_HEIGHT = 100 // 将人物高度从60增加到100
 const COLOR_INVERSION_DURATION = 1.0 // 颜色反转的过渡时间（秒）
 const BURST_ANIMATION_DURATION = 1.2 // 爆炸动画持续时间（秒）
+const FLOAT_SWING_AMPLITUDE = 0.8 // 漂浮时左右晃动的幅度
+const MIN_FLOAT_TIME = 3000 // 最小漂浮时间（毫秒）
+const MAX_FLOAT_TIME = 8000 // 最大漂浮时间（毫秒）
 
 // 全局状态
 let colorInversionProgress = 0 // 颜色反转的进度 (0-1)
@@ -46,6 +49,8 @@ class StickPerson {
   private blowingTool: Vector // 吹泡泡工具的位置
   private colorInversionTarget: number = 0 // 目标颜色反转值
   private lastStateChange: number = 0 // 上次状态变化的时间
+  private floatDuration: number = 0 // 漂浮持续时间
+  private floatStartTime: number = 0 // 开始漂浮的时间
 
   constructor(private p5: P5CanvasInstance, x: number, y: number) {
     this.position = p5.createVector(x, y)
@@ -91,6 +96,9 @@ class StickPerson {
             // 状态变化，开始颜色反转
             this.colorInversionTarget = 1
             this.lastStateChange = this.p5.millis()
+            // 初始化漂浮时间
+            this.floatDuration = this.p5.random(MIN_FLOAT_TIME, MAX_FLOAT_TIME)
+            this.floatStartTime = this.p5.millis()
           }
         }
         break
@@ -110,10 +118,15 @@ class StickPerson {
           const screenTopEdge = -this.p5.height / 2
           const marginFromTop = 20 // 屏幕顶部边缘的额外余量
 
+          // 判断是否到达破裂时间
+          const currentTime = this.p5.millis()
+          const floatTimeElapsed = currentTime - this.floatStartTime
+
           if (bubbleTopEdge <= screenTopEdge + marginFromTop) {
             // 泡泡触顶，破裂
             this.popBubble()
-          } else if (this.p5.random(1000) < 3) { // 随机决定泡泡是否破裂
+          } else if (floatTimeElapsed >= this.floatDuration) {
+            // 到达预定的漂浮时间，泡泡破裂
             this.popBubble()
           }
         }
@@ -398,8 +411,8 @@ class Bubble {
   float() {
     // 泡泡上升
     this.position.y -= BUBBLE_FLOAT_SPEED
-    // 轻微左右摆动
-    this.position.x += this.p5.sin(this.p5.frameCount * 0.05) * 0.3
+    // 增大左右摆动幅度，使用FLOAT_SWING_AMPLITUDE常量
+    this.position.x += this.p5.sin(this.p5.frameCount * 0.05) * FLOAT_SWING_AMPLITUDE
   }
 
   display() {
