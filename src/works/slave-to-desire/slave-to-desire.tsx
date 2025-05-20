@@ -1,7 +1,7 @@
 import { useP5 } from '@/hooks/p5'
 import { ReactP5Wrapper, type P5CanvasInstance } from '@p5-wrapper/react'
 import { Tween, Easing, Group } from '@tweenjs/tween.js'
-import type { Vector } from 'p5'
+import type { Color, Vector } from 'p5'
 
 // 物理常量
 const GRAVITY = 0.2
@@ -12,7 +12,7 @@ const BUBBLE_FLOAT_SPEED = 1
 const FLOOR_HEIGHT = 150 // 距离底部的地面高度
 const PERSON_HEIGHT = 100 // 将人物高度从60增加到100
 const COLOR_INVERSION_DURATION = 1.0 // 颜色反转的过渡时间（秒）
-const BURST_ANIMATION_DURATION = 0.8 // 爆炸动画持续时间（秒）
+const BURST_ANIMATION_DURATION = 1.2 // 爆炸动画持续时间（秒）
 
 // 全局状态
 let colorInversionProgress = 0 // 颜色反转的进度 (0-1)
@@ -375,7 +375,7 @@ class Bubble {
     this.position = p5.createVector(x, y)
     this.radius = radius
     this.initialRadius = radius // 保存初始半径
-    this.targetRadius = p5.random(100, 150) // 设置目标半径
+    this.targetRadius = p5.random(120, 160) // 设置目标半径
     this.growSpeed = growSpeed
     // 使用半透明的蓝色调
     this.color = [200, 220, 255, 100]
@@ -568,6 +568,8 @@ function setup(p5: P5CanvasInstance) {
 }
 
 function draw(p5: P5CanvasInstance) {
+  p5.push() // 保存当前变换状态
+
   // 根据颜色反转进度计算背景颜色
   const bgColor = p5.lerpColor(
     p5.color(20), // 原始背景颜色：深色
@@ -588,6 +590,29 @@ function draw(p5: P5CanvasInstance) {
   // 移动原点到屏幕中心
   p5.translate(p5.width / 2, p5.height / 2)
 
+  // 判断是否需要绘制分裂效果
+  if (burstEffect.active) {
+    // 当有分裂效果时，先更新爆炸效果
+    updateBurstEffect(p5)
+
+    // 绘制分裂的屏幕
+    drawBurstEffect(p5)
+
+    // 检查是否需要继续正常绘制
+    if (burstEffect.progress < 0.5) {
+      // 在分裂初期阶段，仍然绘制正常内容
+      drawNormalContent(p5, floorColor)
+    }
+  } else {
+    // 正常绘制
+    drawNormalContent(p5, floorColor)
+  }
+
+  p5.pop() // 恢复变换状态
+}
+
+// 绘制正常内容的函数
+function drawNormalContent(p5: P5CanvasInstance, floorColor: Color) {
   // 绘制地面
   p5.stroke(floorColor)
   p5.strokeWeight(2)
@@ -600,12 +625,6 @@ function draw(p5: P5CanvasInstance) {
   // 更新和显示人物
   person.update()
   person.display()
-
-  // 更新爆炸效果
-  updateBurstEffect(p5)
-
-  // 绘制爆炸效果
-  drawBurstEffect(p5)
 }
 
 // 更新爆炸效果
@@ -620,49 +639,124 @@ function updateBurstEffect(p5: P5CanvasInstance) {
   }
 }
 
-// 绘制爆炸效果
+// 绘制整屏裂开效果
 function drawBurstEffect(p5: P5CanvasInstance) {
   if (burstEffect.active) {
     p5.push()
-    p5.noFill()
 
-    // 根据颜色反转进度计算颜色
-    const burstColor = p5.lerpColor(
-      p5.color(200, 220, 255, 100 * (1 - burstEffect.progress)),
-      p5.color(50, 30, 20, 100 * (1 - burstEffect.progress)),
-      colorInversionProgress
-    )
+    // 计算屏幕分裂距离
+    const maxSeparation = p5.width * 0.6 // 最大分离距离
+    const easedProgress = Easing.Cubic.Out(burstEffect.progress) // 使用缓出效果让分裂更有冲击力
+    const separationDistance = maxSeparation * easedProgress
 
-    p5.stroke(burstColor)
-    p5.strokeWeight(1.5)
-
-    // 左右分离的效果
-    const separationDistance = burstEffect.radius * 2 * burstEffect.progress
-
-    // 绘制左半部分
-    p5.arc(
-      burstEffect.x - separationDistance / 2,
-      burstEffect.y,
-      burstEffect.radius * 2,
-      burstEffect.radius * 2,
-      p5.PI * 0.5,
-      p5.PI * 1.5,
-      p5.OPEN
-    )
-
-    // 绘制右半部分
-    p5.arc(
-      burstEffect.x + separationDistance / 2,
-      burstEffect.y,
-      burstEffect.radius * 2,
-      burstEffect.radius * 2,
-      p5.PI * 1.5,
-      p5.PI * 2.5,
-      p5.OPEN
-    )
+    // 绘制分裂线和裂缝效果
+    drawScreenHalves(p5, separationDistance)
 
     p5.pop()
   }
+}
+
+// 绘制屏幕分裂的两半
+function drawScreenHalves(p5: P5CanvasInstance, separation: number) {
+  const screenWidth = p5.width
+  const screenHeight = p5.height
+
+  // 计算裂缝的噪声和不规则度
+  const crackJaggedness = 5 + separation * 0.05 // 裂缝的锯齿程度随分离增加
+  const cracksCount = 25 // 裂缝数量
+
+  p5.push()
+  p5.noFill()
+
+  // 根据颜色反转状态确定裂缝颜色
+  const crackColor = p5.lerpColor(
+    p5.color(255, 255, 255, 180 - burstEffect.progress * 100),
+    p5.color(20, 20, 20, 180 - burstEffect.progress * 100),
+    colorInversionProgress
+  )
+
+  p5.stroke(crackColor)
+  p5.strokeWeight(1.5)
+
+  // 画主裂缝线
+  p5.beginShape()
+  for (let y = -screenHeight / 2; y < screenHeight / 2; y += screenHeight / cracksCount) {
+    // 添加一些水平方向的随机变化，形成不规则裂缝
+    const xOffset = p5.noise(y * 0.01, p5.frameCount * 0.01) * crackJaggedness - crackJaggedness / 2
+    p5.vertex(xOffset, y)
+  }
+  p5.endShape()
+
+  // 绘制分支裂缝
+  const branchCount = 15
+  const maxBranchLength = 40
+
+  for (let i = 0; i < branchCount; i++) {
+    const y = p5.random(-screenHeight / 2, screenHeight / 2)
+    const xOffset = p5.noise(y * 0.01, i) * crackJaggedness - crackJaggedness / 2
+    const branchLength = p5.random(10, maxBranchLength)
+    const angle = p5.random(p5.PI / 4, p5.PI * 3 / 4) * (p5.random() > 0.5 ? 1 : -1)
+
+    p5.line(
+      xOffset, y,
+      xOffset + Math.cos(angle) * branchLength, y + Math.sin(angle) * branchLength
+    )
+  }
+
+  p5.pop()
+
+  // 渲染左半屏幕
+  p5.push()
+  p5.translate(-separation / 2, 0)
+  drawScreenContent(p5, -1, separation) // -1 表示左侧
+  p5.pop()
+
+  // 渲染右半屏幕
+  p5.push()
+  p5.translate(separation / 2, 0)
+  drawScreenContent(p5, 1, separation) // 1 表示右侧
+  p5.pop()
+}
+
+// 绘制屏幕一半的内容
+function drawScreenContent(p5: P5CanvasInstance, side: number, separation: number) {
+  // 这里我们需要使用一个裁剪区域来确保只绘制屏幕的一半
+  p5.push()
+
+  // 创建裁剪区域
+  p5.beginShape()
+  if (side < 0) {
+    // 左半屏
+    p5.vertex(-p5.width, -p5.height)
+    p5.vertex(0, -p5.height)
+    p5.vertex(0, p5.height)
+    p5.vertex(-p5.width, p5.height)
+  } else {
+    // 右半屏
+    p5.vertex(0, -p5.height)
+    p5.vertex(p5.width, -p5.height)
+    p5.vertex(p5.width, p5.height)
+    p5.vertex(0, p5.height)
+  }
+  p5.endShape(p5.CLOSE)
+
+  // 添加模糊和位移效果
+  const blurAmount = separation * 0.05
+  const edgeAmount = side * separation * 0.08
+
+  // 添加噪声扭曲
+  const distortionAmount = separation * 0.0015
+  if (separation > 0) {
+    for (let y = -p5.height / 2; y < p5.height / 2; y += 5) {
+      const noiseVal = p5.noise(y * 0.01, p5.frameCount * 0.01) * distortionAmount
+      p5.line(
+        -side * p5.width / 2 + edgeAmount, y,
+        side * noiseVal * 10, y
+      )
+    }
+  }
+
+  p5.pop()
 }
 
 function SlaveToDesire() {
