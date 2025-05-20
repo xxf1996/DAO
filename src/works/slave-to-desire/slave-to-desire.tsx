@@ -83,8 +83,15 @@ class StickPerson {
           this.position.x = this.bubble.getPosition().x
           this.position.y = this.bubble.getPosition().y + this.height * 0.7
 
-          // 随机决定泡泡是否破裂
-          if (this.p5.random(1000) < 5 || this.position.y < -this.p5.height / 2) {
+          // 检查泡泡是否触顶
+          const bubbleTopEdge = this.bubble.getPosition().y - this.bubble.getRadius()
+          const screenTopEdge = -this.p5.height / 2
+          const marginFromTop = 20 // 屏幕顶部边缘的额外余量
+
+          if (bubbleTopEdge <= screenTopEdge + marginFromTop) {
+            // 泡泡触顶，破裂
+            this.popBubble()
+          } else if (this.p5.random(1000) < 3) { // 随机决定泡泡是否破裂
             this.popBubble()
           }
         }
