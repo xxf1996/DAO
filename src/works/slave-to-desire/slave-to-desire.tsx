@@ -605,17 +605,34 @@ function draw(p5: P5CanvasInstance) {
 
   // 判断是否需要绘制分裂效果
   if (burstEffect.active) {
+    // 先绘制初始状态的画面（在最底层）
+    if (burstEffect.progress > 0.5) {
+      // 当分裂开始倒下时，显示初始状态内容
+      p5.push()
+      // 返回初始状态的背景
+      p5.background(20)
+
+      // 绘制初始状态的地面
+      p5.stroke(60)
+      p5.strokeWeight(2)
+      p5.line(-p5.width / 2, p5.height / 2 - FLOOR_HEIGHT, p5.width / 2, p5.height / 2 - FLOOR_HEIGHT)
+
+      // 由于是初始状态，所以我们只绘制基础内容
+      // 这里可以考虑添加一些元素表示初始状态
+
+      p5.pop()
+    }
+
     // 当有分裂效果时，先更新爆炸效果
     updateBurstEffect(p5)
 
-    // 绘制分裂的屏幕
-    drawBurstEffect(p5)
-
-    // 检查是否需要继续正常绘制
+    // 在分裂的前半部分，仍然绘制正常内容
     if (burstEffect.progress < 0.5) {
-      // 在分裂初期阶段，仍然绘制正常内容
       drawNormalContent(p5, floorColor)
     }
+
+    // 绘制分裂的屏幕
+    drawBurstEffect(p5)
   } else {
     // 正常绘制
     drawNormalContent(p5, floorColor)
@@ -657,116 +674,147 @@ function drawBurstEffect(p5: P5CanvasInstance) {
   if (burstEffect.active) {
     p5.push()
 
-    // 计算屏幕分裂距离
-    const maxSeparation = p5.width * 0.6 // 最大分离距离
-    const easedProgress = Easing.Cubic.Out(burstEffect.progress) // 使用缓出效果让分裂更有冲击力
-    const separationDistance = maxSeparation * easedProgress
+    // 计算屏幕分裂与倒塌的动画进度
+    const splitProgress = Math.min(burstEffect.progress * 2, 1) // 前半段动画：屏幕分裂
+    const fallProgress = burstEffect.progress > 0.5 ? (burstEffect.progress - 0.5) * 2 : 0 // 后半段动画：两侧倒下
 
-    // 绘制分裂线和裂缝效果
-    drawScreenHalves(p5, separationDistance)
+    // 分裂的宽度
+    const maxSeparation = p5.width * 0.1 // 控制分裂的最大宽度
+    const separationDistance = Easing.Cubic.Out(splitProgress) * maxSeparation
+
+    // 倒塌的角度 (0->90度)
+    const maxFallAngle = p5.PI / 2 // 90度
+    const leftFallAngle = Easing.Cubic.In(fallProgress) * maxFallAngle
+    const rightFallAngle = -Easing.Cubic.In(fallProgress) * maxFallAngle
+
+    // 绘制分裂线
+    drawCrackLine(p5)
+
+    // 绘制两侧屏幕内容
+    drawHalfScreen(p5, -1, separationDistance, leftFallAngle, fallProgress) // 左半部分
+    drawHalfScreen(p5, 1, separationDistance, rightFallAngle, fallProgress) // 右半部分
 
     p5.pop()
   }
 }
 
-// 绘制屏幕分裂的两半
-function drawScreenHalves(p5: P5CanvasInstance, separation: number) {
-  const screenWidth = p5.width
-  const screenHeight = p5.height
-
-  // 计算裂缝的噪声和不规则度
-  const crackJaggedness = 5 + separation * 0.05 // 裂缝的锯齿程度随分离增加
-  const cracksCount = 25 // 裂缝数量
-
+// 绘制中间的裂缝线
+function drawCrackLine(p5: P5CanvasInstance) {
   p5.push()
   p5.noFill()
 
-  // 根据颜色反转状态确定裂缝颜色
+  // 裂缝颜色
   const crackColor = p5.lerpColor(
-    p5.color(255, 255, 255, 180 - burstEffect.progress * 100),
-    p5.color(20, 20, 20, 180 - burstEffect.progress * 100),
+    p5.color(255, 255, 255, 180),
+    p5.color(20, 20, 20, 180),
     colorInversionProgress
   )
 
   p5.stroke(crackColor)
-  p5.strokeWeight(1.5)
+  p5.strokeWeight(2)
 
-  // 画主裂缝线
+  // 使用噪声制造不规则的中央裂缝
   p5.beginShape()
-  for (let y = -screenHeight / 2; y < screenHeight / 2; y += screenHeight / cracksCount) {
-    // 添加一些水平方向的随机变化，形成不规则裂缝
-    const xOffset = p5.noise(y * 0.01, p5.frameCount * 0.01) * crackJaggedness - crackJaggedness / 2
-    p5.vertex(xOffset, y)
+  const screenHeight = p5.height
+  const jaggedness = 5 // 锯齿度
+
+  for (let y = -screenHeight / 2; y < screenHeight / 2; y += 20) {
+    const xNoise = p5.noise(y * 0.02, p5.frameCount * 0.01) * jaggedness - jaggedness / 2
+    p5.vertex(xNoise, y)
   }
   p5.endShape()
 
-  // 绘制分支裂缝
-  const branchCount = 15
-  const maxBranchLength = 40
-
-  for (let i = 0; i < branchCount; i++) {
-    const y = p5.random(-screenHeight / 2, screenHeight / 2)
-    const xOffset = p5.noise(y * 0.01, i) * crackJaggedness - crackJaggedness / 2
-    const branchLength = p5.random(10, maxBranchLength)
-    const angle = p5.random(p5.PI / 4, p5.PI * 3 / 4) * (p5.random() > 0.5 ? 1 : -1)
-
-    p5.line(
-      xOffset, y,
-      xOffset + Math.cos(angle) * branchLength, y + Math.sin(angle) * branchLength
-    )
-  }
-
-  p5.pop()
-
-  // 渲染左半屏幕
-  p5.push()
-  p5.translate(-separation / 2, 0)
-  drawScreenContent(p5, -1, separation) // -1 表示左侧
-  p5.pop()
-
-  // 渲染右半屏幕
-  p5.push()
-  p5.translate(separation / 2, 0)
-  drawScreenContent(p5, 1, separation) // 1 表示右侧
   p5.pop()
 }
 
-// 绘制屏幕一半的内容
-function drawScreenContent(p5: P5CanvasInstance, side: number, separation: number) {
-  // 这里我们需要使用一个裁剪区域来确保只绘制屏幕的一半
+// 绘制屏幕的一半（带倒塌效果）
+function drawHalfScreen(p5: P5CanvasInstance, side: number, separation: number, fallAngle: number, fallProgress: number) {
   p5.push()
 
-  // 创建裁剪区域
-  p5.beginShape()
+  // 应用分裂位移
+  p5.translate(side * separation / 2, 0)
+
+  // 保存当前状态中心点作为倒塌的旋转原点
+  if (side < 0) {
+    // 左侧以右边缘为支点倒下
+    p5.translate(p5.width / 2, 0)
+    p5.rotate(fallAngle)
+    p5.translate(-p5.width / 2, 0)
+  } else {
+    // 右侧以左边缘为支点倒下
+    p5.translate(-p5.width / 2, 0)
+    p5.rotate(fallAngle)
+    p5.translate(p5.width / 2, 0)
+  }
+
+  // 随着倒塌进度增加透明度
+  const opacity = 1 - fallProgress * 0.8
+
+  // 绘制这一半的内容
+  // 背景
+  p5.noStroke()
+  const bgColor = p5.lerpColor(
+    p5.color(20), // 原始背景颜色：深色
+    p5.color(235), // 反转后背景颜色：浅色
+    colorInversionProgress
+  )
+  // 使用rgba格式设置填充色
+  p5.fill(
+    p5.red(bgColor),
+    p5.green(bgColor),
+    p5.blue(bgColor),
+    255 * opacity
+  )
+
+  // 绘制矩形覆盖这一半屏幕
   if (side < 0) {
     // 左半屏
-    p5.vertex(-p5.width, -p5.height)
-    p5.vertex(0, -p5.height)
-    p5.vertex(0, p5.height)
-    p5.vertex(-p5.width, p5.height)
+    p5.rect(-p5.width, -p5.height / 2, p5.width, p5.height)
   } else {
     // 右半屏
-    p5.vertex(0, -p5.height)
-    p5.vertex(p5.width, -p5.height)
-    p5.vertex(p5.width, p5.height)
-    p5.vertex(0, p5.height)
+    p5.rect(0, -p5.height / 2, p5.width, p5.height)
   }
-  p5.endShape(p5.CLOSE)
 
-  // 添加模糊和位移效果
-  const blurAmount = separation * 0.05
-  const edgeAmount = side * separation * 0.08
+  // 绘制地面和其他内容
+  const floorColor = p5.lerpColor(
+    p5.color(60), // 原始地面颜色
+    p5.color(110), // 反转后地面颜色
+    colorInversionProgress
+  )
 
-  // 添加噪声扭曲
-  const distortionAmount = separation * 0.0015
-  if (separation > 0) {
-    for (let y = -p5.height / 2; y < p5.height / 2; y += 5) {
-      const noiseVal = p5.noise(y * 0.01, p5.frameCount * 0.01) * distortionAmount
-      p5.line(
-        -side * p5.width / 2 + edgeAmount, y,
-        side * noiseVal * 10, y
-      )
-    }
+  // 使用rgba格式设置线条颜色
+  p5.stroke(
+    p5.red(floorColor),
+    p5.green(floorColor),
+    p5.blue(floorColor),
+    255 * opacity
+  )
+  p5.strokeWeight(2)
+
+  // 地面线
+  const floorY = p5.height / 2 - FLOOR_HEIGHT
+  if (side < 0) {
+    p5.line(-p5.width, floorY, 0, floorY)
+  } else {
+    p5.line(0, floorY, p5.width, floorY)
+  }
+
+  // 添加边缘的阴影效果，增强立体感
+  p5.noStroke()
+  if (side < 0) {
+    // 左侧屏幕右边缘阴影
+    const shadowGradient = p5.drawingContext.createLinearGradient(-5, 0, 5, 0)
+    shadowGradient.addColorStop(0, `rgba(0,0,0,${0.5 * opacity})`)
+    shadowGradient.addColorStop(1, 'rgba(0,0,0,0)')
+    p5.drawingContext.fillStyle = shadowGradient
+    p5.rect(-5, -p5.height / 2, 10, p5.height)
+  } else {
+    // 右侧屏幕左边缘阴影
+    const shadowGradient = p5.drawingContext.createLinearGradient(-5, 0, 5, 0)
+    shadowGradient.addColorStop(0, 'rgba(0,0,0,0)')
+    shadowGradient.addColorStop(1, `rgba(0,0,0,${0.5 * opacity})`)
+    p5.drawingContext.fillStyle = shadowGradient
+    p5.rect(-5, -p5.height / 2, 10, p5.height)
   }
 
   p5.pop()
