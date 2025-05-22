@@ -449,7 +449,7 @@ class Bubble {
 
     // 绘制外发光
     p5.fill(outerGlowColor)
-    p5.circle(x, y, r * 2.1)
+    p5.circle(x, y, r * 2 + 8)
 
     // 主体泡泡 - 使用填充渐变
     this.renderBubbleGradient(x, y, r)
@@ -457,9 +457,7 @@ class Bubble {
     // 边缘光晕效果 - 使用细线
     p5.noFill()
     p5.strokeWeight(1)
-    const edgeColor = isInverted
-      ? p5.color(80, 60, 40, 180)
-      : p5.color(255, 255, 255, 180)
+    const edgeColor = p5.color(255, 255, 255, 180)
 
     p5.stroke(edgeColor)
     p5.circle(x, y, r * 2)
@@ -484,19 +482,14 @@ class Bubble {
     // 添加多个渐变色停止点，创建彩虹膜效果
     const baseHue = (this.hueOffset + p5.frameCount * 0.5) % 360
 
-    // 使用HSL色彩空间创建彩虹色彩效果
+    // 使用HSL色彩空间创建彩虹色彩效果 - 不考虑颜色反转
     for (let i = 0; i < BUBBLE_GRADIENT_STOPS; i++) {
       const stop = i / (BUBBLE_GRADIENT_STOPS - 1)
       const hue = (baseHue + i * 30) % 360
 
-      // 如果是颜色反转状态，使用不同的颜色方案
-      if (colorInversionProgress > 0.5) {
-        const invBrightness = 40 - i * 5
-        gradient.addColorStop(stop, `hsla(${hue}, 30%, ${invBrightness}%, ${0.6 - stop * 0.2})`)
-      } else {
-        const brightness = 80 - i * 5
-        gradient.addColorStop(stop, `hsla(${hue}, 80%, ${brightness}%, ${0.7 - stop * 0.3})`)
-      }
+      // 统一使用明亮的彩色方案，不考虑颜色反转
+      const brightness = 80 - i * 5
+      gradient.addColorStop(stop, `hsla(${hue}, 80%, ${brightness}%, ${0.7 - stop * 0.3})`)
     }
 
     // 应用渐变
@@ -513,12 +506,8 @@ class Bubble {
   private renderBubbleHighlights(x: number, y: number, radius: number) {
     const p5 = this.p5
 
-    // 根据颜色反转进度计算高光颜色
-    const highlightColor = p5.lerpColor(
-      p5.color(255, 255, 255, 180),
-      p5.color(100, 100, 100, 150),
-      colorInversionProgress
-    )
+    // 使用固定的高光颜色，不考虑颜色反转
+    const highlightColor = p5.color(255, 255, 255, 180)
 
     p5.push()
     p5.noFill()
