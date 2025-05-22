@@ -16,6 +16,8 @@ const BURST_ANIMATION_DURATION = 1.2 // 爆炸动画持续时间（秒）
 const FLOAT_SWING_AMPLITUDE = 0.8 // 漂浮时左右晃动的幅度
 const MIN_FLOAT_TIME = 3000 // 最小漂浮时间（毫秒）
 const MAX_FLOAT_TIME = 8000 // 最大漂浮时间（毫秒）
+const BUBBLE_REFRACTION = 0.2 // 泡泡折射率
+const BUBBLE_GRADIENT_STOPS = 6 // 泡泡彩色膜的渐变停止点数量
 
 // 全局状态
 let colorInversionProgress = 0 // 颜色反转的进度 (0-1)
@@ -383,6 +385,10 @@ class Bubble {
   private initialRadius: number // 存储初始半径
   private targetRadius: number // 目标半径
   private growProgress: number = 0 // 生长进度
+  private hueOffset: number // 泡泡的颜色偏移
+  private membraneThickness: number // 泡泡膜的厚度
+  private rotationAngle: number = 0 // 泡泡膜的旋转角度
+  private rotationSpeed: number // 旋转速度
 
   constructor(private p5: P5CanvasInstance, x: number, y: number, radius: number, growSpeed: number) {
     this.position = p5.createVector(x, y)
@@ -393,6 +399,10 @@ class Bubble {
     // 使用半透明的蓝色调
     this.color = [200, 220, 255, 100]
     this.growthPhase = 0
+    // 初始化新增属性
+    this.hueOffset = p5.random(360) // 随机颜色偏移
+    this.membraneThickness = p5.random(1, 2) // 泡泡膜厚度
+    this.rotationSpeed = p5.random(0.002, 0.005) * (p5.random() > 0.5 ? 1 : -1) // 随机旋转速度和方向
   }
 
   update() {
@@ -406,6 +416,9 @@ class Bubble {
     this.radius = this.initialRadius + (this.targetRadius - this.initialRadius) * easedProgress
     // 添加轻微的波动效果
     this.radius *= (1 + Math.sin(this.growthPhase) * 0.05)
+
+    // 更新旋转角度
+    this.rotationAngle += this.rotationSpeed
   }
 
   float() {
@@ -416,39 +429,131 @@ class Bubble {
   }
 
   display() {
-    this.p5.push()
-    // 绘制泡泡
-    this.p5.noFill()
+    const p5 = this.p5
+    p5.push()
 
-    // 根据颜色反转进度计算泡泡颜色
-    const bubbleColor = this.p5.lerpColor(
-      this.p5.color(this.color[0], this.color[1], this.color[2], this.color[3]),
-      this.p5.color(50, 30, 20, this.color[3]),
+    // 泡泡位置与大小
+    const x = this.position.x
+    const y = this.position.y
+    const r = this.radius
+
+    // 根据颜色反转进度决定是否反转颜色
+    const isInverted = colorInversionProgress > 0.5
+
+    // 绘制彩色膜效果 - 使用多个同心圆和渐变效果
+    // 首先绘制一个微弱的外发光
+    p5.noStroke()
+    const outerGlowColor = isInverted
+      ? p5.color(50, 30, 20, 30)
+      : p5.color(255, 255, 255, 30)
+
+    // 绘制外发光
+    p5.fill(outerGlowColor)
+    p5.circle(x, y, r * 2.1)
+
+    // 主体泡泡 - 使用填充渐变
+    this.renderBubbleGradient(x, y, r)
+
+    // 边缘光晕效果 - 使用细线
+    p5.noFill()
+    p5.strokeWeight(1)
+    const edgeColor = isInverted
+      ? p5.color(80, 60, 40, 180)
+      : p5.color(255, 255, 255, 180)
+
+    p5.stroke(edgeColor)
+    p5.circle(x, y, r * 2)
+
+    // 绘制泡泡上的高光反射
+    this.renderBubbleHighlights(x, y, r)
+
+    p5.pop()
+  }
+
+  // 渲染泡泡的彩色膜渐变效果
+  private renderBubbleGradient(x: number, y: number, radius: number) {
+    const p5 = this.p5
+    const ctx = p5.drawingContext as CanvasRenderingContext2D
+
+    // 创建径向渐变
+    const gradient = ctx.createRadialGradient(
+      x + radius * 0.3, y - radius * 0.3, 0, // 内圆心和半径
+      x, y, radius // 外圆心和半径
+    )
+
+    // 添加多个渐变色停止点，创建彩虹膜效果
+    const baseHue = (this.hueOffset + p5.frameCount * 0.5) % 360
+
+    // 使用HSL色彩空间创建彩虹色彩效果
+    for (let i = 0; i < BUBBLE_GRADIENT_STOPS; i++) {
+      const stop = i / (BUBBLE_GRADIENT_STOPS - 1)
+      const hue = (baseHue + i * 30) % 360
+
+      // 如果是颜色反转状态，使用不同的颜色方案
+      if (colorInversionProgress > 0.5) {
+        const invBrightness = 40 - i * 5
+        gradient.addColorStop(stop, `hsla(${hue}, 30%, ${invBrightness}%, ${0.6 - stop * 0.2})`)
+      } else {
+        const brightness = 80 - i * 5
+        gradient.addColorStop(stop, `hsla(${hue}, 80%, ${brightness}%, ${0.7 - stop * 0.3})`)
+      }
+    }
+
+    // 应用渐变
+    ctx.fillStyle = gradient
+
+    // 绘制填充圆形
+    p5.noStroke()
+    ctx.beginPath()
+    ctx.arc(x, y, radius, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  // 渲染泡泡上的高光反射
+  private renderBubbleHighlights(x: number, y: number, radius: number) {
+    const p5 = this.p5
+
+    // 根据颜色反转进度计算高光颜色
+    const highlightColor = p5.lerpColor(
+      p5.color(255, 255, 255, 180),
+      p5.color(100, 100, 100, 150),
       colorInversionProgress
     )
 
-    this.p5.stroke(bubbleColor)
-    this.p5.strokeWeight(1.5)
-    this.p5.circle(this.position.x, this.position.y, this.radius * 2)
+    p5.push()
+    p5.noFill()
+    p5.stroke(highlightColor)
+    p5.strokeWeight(this.membraneThickness)
 
-    // 绘制泡泡上的高光
-    const highlightColor = this.p5.lerpColor(
-      this.p5.color(255, 255, 255, 150),
-      this.p5.color(50, 50, 50, 150),
-      colorInversionProgress
+    // 添加旋转效果使高光动起来
+    p5.translate(x, y)
+    p5.rotate(this.rotationAngle)
+    p5.translate(-x, -y)
+
+    // 主高光 - 左上角弧形
+    p5.arc(
+      x - radius * 0.3,
+      y - radius * 0.3,
+      radius * 0.8,
+      radius * 0.8,
+      p5.PI * 0.8,
+      p5.PI * 1.6,
+      p5.OPEN
     )
 
-    this.p5.stroke(highlightColor)
-    this.p5.arc(
-      this.position.x - this.radius * 0.3,
-      this.position.y - this.radius * 0.3,
-      this.radius * 0.8,
-      this.radius * 0.8,
-      this.p5.PI * 0.8,
-      this.p5.PI * 1.6,
-      this.p5.OPEN
+    // 次高光 - 右下角小弧形
+    p5.strokeWeight(this.membraneThickness * 0.7)
+    p5.arc(
+      x + radius * 0.4,
+      y + radius * 0.4,
+      radius * 0.4,
+      radius * 0.4,
+      p5.PI * 0.1,
+      p5.PI * 0.6,
+      p5.OPEN
     )
-    this.p5.pop()
+
+    p5.pop()
   }
 
   getRadius() {
