@@ -668,7 +668,7 @@ function setup(p5: P5CanvasInstance) {
   p5.ellipseMode(p5.CENTER)
 
   // 创建人物坐在地面上
-  person = new StickPerson(p5, 0, p5.height / 2 - FLOOR_HEIGHT + 40) // 调整位置以适应坐姿
+  person = new StickPerson(p5, 0, p5.height / 2 - FLOOR_HEIGHT) // 调整位置使腿部与地面对齐
 
   // 创建涟漪管理器
   rippleManager = new RippleManager(p5)
