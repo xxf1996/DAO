@@ -9,8 +9,8 @@ const AIR_RESISTANCE = 0.98
 const BUBBLE_MIN_GROW_SPEED = 0.5
 const BUBBLE_MAX_GROW_SPEED = 1.5
 const BUBBLE_FLOAT_SPEED = 0.6
-const FLOOR_HEIGHT = 150 // 距离底部的地面高度
-const PERSON_HEIGHT = 100 // 将人物高度从60增加到100
+const FLOOR_HEIGHT = 100 // 距离底部的地面高度
+const PERSON_HEIGHT = 80 // 将人物高度从60增加到100
 const COLOR_INVERSION_DURATION = 1.0 // 颜色反转的过渡时间（秒）
 const CRACK_APPEAR_DURATION = 10.0 // 裂痕出现持续时间（秒）
 const BUBBLE_SPLIT_DURATION = 3.0 // 泡泡分裂持续时间（秒）
@@ -19,7 +19,7 @@ const FLOAT_SWING_AMPLITUDE = 1.2 // 漂浮时左右晃动的幅度
 const MIN_FLOAT_TIME = 15000 // 最小漂浮时间（毫秒）
 const MAX_FLOAT_TIME = 30000 // 最大漂浮时间（毫秒）
 const BUBBLE_REFRACTION = 0.2 // 泡泡折射率
-const BUBBLE_GRADIENT_STOPS = 6 // 泡泡彩色膜的渐变停止点数量
+const BUBBLE_GRADIENT_STOPS = 8 // 泡泡彩色膜的渐变停止点数量
 
 // 全局状态
 let colorInversionProgress = 0 // 颜色反转的进度 (0-1)
@@ -970,47 +970,67 @@ function drawHalfBubbleWithCrack(p5: P5CanvasInstance, centerX: number, centerY:
   const ctx = p5.drawingContext as CanvasRenderingContext2D
   ctx.save()
 
-  // 创建裂痕形状的裁剪路径
-  ctx.beginPath()
-
   if (bubbleCrackEffect.crackPoints.length > 0) {
     // 使用裂痕路径创建裁剪区域
     const crackPoints = bubbleCrackEffect.crackPoints
+    const originalCenterX = bubbleCrackEffect.x
+    const originalCenterY = bubbleCrackEffect.y
+    const originalRadius = bubbleCrackEffect.radius
+
+    // 计算当前半泡泡相对于原始泡泡的偏移
+    const offsetX = centerX - originalCenterX
+    const offsetY = centerY - originalCenterY
+
+    ctx.beginPath()
 
     if (side === 'left') {
-      // 左半部分：从泡泡左边缘到裂痕路径
-      ctx.arc(centerX, centerY, radius, Math.PI * 0.5, Math.PI * 1.5, false)
-      // 沿着裂痕路径
+      // 左半部分：从泡泡顶部开始，沿左半圆弧到底部
+      const startAngle = -Math.PI / 2
+      const endAngle = Math.PI / 2
+
+      // 应用偏移后绘制左半圆弧
+      ctx.arc(originalCenterX + offsetX, originalCenterY + offsetY, originalRadius, startAngle, endAngle, false)
+
+      // 沿着裂痕路径返回（从下到上），应用偏移
       for (let i = crackPoints.length - 1; i >= 0; i--) {
-        ctx.lineTo(crackPoints[i].x, crackPoints[i].y)
+        ctx.lineTo(crackPoints[i].x + offsetX, crackPoints[i].y + offsetY)
       }
     } else {
-      // 右半部分：从裂痕路径到泡泡右边缘
-      ctx.moveTo(crackPoints[0].x, crackPoints[0].y)
+      // 右半部分：从裂痕路径开始，到右半圆弧
+
+      // 从裂痕路径开始（从上到下），应用偏移
+      ctx.moveTo(crackPoints[0].x + offsetX, crackPoints[0].y + offsetY)
       for (let i = 1; i < crackPoints.length; i++) {
-        ctx.lineTo(crackPoints[i].x, crackPoints[i].y)
+        ctx.lineTo(crackPoints[i].x + offsetX, crackPoints[i].y + offsetY)
       }
-      // 沿着泡泡右半边缘
-      ctx.arc(centerX, centerY, radius, Math.PI * 1.5, Math.PI * 0.5, false)
+
+      // 沿着右半圆弧返回到起点，应用偏移
+      const startAngle = Math.PI / 2
+      const endAngle = -Math.PI / 2
+      ctx.arc(originalCenterX + offsetX, originalCenterY + offsetY, originalRadius, startAngle, endAngle, false)
     }
 
     ctx.closePath()
   } else {
     // 如果没有裂痕点，使用简单的半圆
+    ctx.beginPath()
     if (side === 'left') {
       ctx.rect(centerX - radius, centerY - radius, radius, radius * 2)
     } else {
       ctx.rect(centerX, centerY - radius, radius, radius * 2)
     }
+    ctx.closePath()
   }
 
   ctx.clip()
 
   // 绘制完整的泡泡效果
   if (bubbleCrackEffect.originalBubble) {
-    // 临时移动泡泡位置到当前半泡泡位置
+    // 保存原始位置
     const originalX = bubbleCrackEffect.originalBubble.getPosition().x
     const originalY = bubbleCrackEffect.originalBubble.getPosition().y
+
+    // 移动泡泡到当前半泡泡位置
     bubbleCrackEffect.originalBubble.setPosition(centerX, centerY)
 
     // 绘制泡泡
