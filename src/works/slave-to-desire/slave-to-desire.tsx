@@ -8,12 +8,12 @@ const GRAVITY = 0.2
 const AIR_RESISTANCE = 0.98
 const BUBBLE_MIN_GROW_SPEED = 0.5
 const BUBBLE_MAX_GROW_SPEED = 1.5
-const BUBBLE_FLOAT_SPEED = 1
+const BUBBLE_FLOAT_SPEED = 0.6
 const FLOOR_HEIGHT = 150 // 距离底部的地面高度
 const PERSON_HEIGHT = 100 // 将人物高度从60增加到100
 const COLOR_INVERSION_DURATION = 1.0 // 颜色反转的过渡时间（秒）
-const BURST_ANIMATION_DURATION = 1.2 // 爆炸动画持续时间（秒）
-const FLOAT_SWING_AMPLITUDE = 0.8 // 漂浮时左右晃动的幅度
+const BURST_ANIMATION_DURATION = 1.5 // 爆炸动画持续时间（秒）
+const FLOAT_SWING_AMPLITUDE = 1.2 // 漂浮时左右晃动的幅度
 const MIN_FLOAT_TIME = 3000 // 最小漂浮时间（毫秒）
 const MAX_FLOAT_TIME = 8000 // 最大漂浮时间（毫秒）
 const BUBBLE_REFRACTION = 0.2 // 泡泡折射率
@@ -409,7 +409,7 @@ class Bubble {
     // 使用ease-in曲线更新泡泡大小
     this.growthPhase += 0.1
     // 增加生长进度，但保持在0-1范围内
-    this.growProgress = Math.min(this.growProgress + (this.growSpeed * 0.005), 1)
+    this.growProgress = Math.min(this.growProgress + (this.growSpeed * 0.002), 1)
     // 使用Easing.Cubic.In函数创建ease-in效果
     const easedProgress = Easing.Cubic.InOut(this.growProgress)
     // 计算当前半径 = 初始半径 + (目标增长 * 缓动进度)
