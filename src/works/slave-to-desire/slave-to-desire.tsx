@@ -4,7 +4,7 @@ import { Tween, Easing, Group } from '@tweenjs/tween.js'
 import type { Color, Vector } from 'p5'
 
 // 物理常量
-const GRAVITY = 0.2
+const GRAVITY = 0.1 // 降低重力，让下落更慢
 const AIR_RESISTANCE = 0.98
 const BUBBLE_MIN_GROW_SPEED = 0.5
 const BUBBLE_MAX_GROW_SPEED = 1.5
@@ -12,23 +12,31 @@ const BUBBLE_FLOAT_SPEED = 0.6
 const FLOOR_HEIGHT = 150 // 距离底部的地面高度
 const PERSON_HEIGHT = 100 // 将人物高度从60增加到100
 const COLOR_INVERSION_DURATION = 1.0 // 颜色反转的过渡时间（秒）
-const BURST_ANIMATION_DURATION = 1.5 // 爆炸动画持续时间（秒）
+const CRACK_APPEAR_DURATION = 10.0 // 裂痕出现持续时间（秒）
+const BUBBLE_SPLIT_DURATION = 3.0 // 泡泡分裂持续时间（秒）
+const BUBBLE_FADE_DURATION = 0.6 // 泡泡消散持续时间（秒）
 const FLOAT_SWING_AMPLITUDE = 1.2 // 漂浮时左右晃动的幅度
-const MIN_FLOAT_TIME = 3000 // 最小漂浮时间（毫秒）
-const MAX_FLOAT_TIME = 8000 // 最大漂浮时间（毫秒）
+const MIN_FLOAT_TIME = 15000 // 最小漂浮时间（毫秒）
+const MAX_FLOAT_TIME = 30000 // 最大漂浮时间（毫秒）
 const BUBBLE_REFRACTION = 0.2 // 泡泡折射率
 const BUBBLE_GRADIENT_STOPS = 6 // 泡泡彩色膜的渐变停止点数量
 
 // 全局状态
 let colorInversionProgress = 0 // 颜色反转的进度 (0-1)
-let burstEffect = {
+let bubbleCrackEffect = {
   active: false,
+  phase: 'crack', // 'crack' | 'split' | 'fade' | 'fall'
   progress: 0,
   x: 0,
   y: 0,
   radius: 0,
-  startTime: 0
-} // 爆炸效果状态
+  startTime: 0,
+  crackPoints: [] as Array<{ x: number, y: number }>, // 裂痕路径点
+  leftHalf: { x: 0, y: 0, velocityX: 0, velocityY: 0 }, // 左半泡泡位置和速度
+  rightHalf: { x: 0, y: 0, velocityX: 0, velocityY: 0 }, // 右半泡泡位置和速度
+  timeFreeze: false, // 时间是否冻结
+  originalBubble: null as Bubble | null // 保存原始泡泡用于渲染
+} // 泡泡破裂效果状态
 
 // 人物状态枚举
 enum PersonState {
@@ -70,6 +78,11 @@ class StickPerson {
   }
 
   update() {
+    // 如果时间冻结，不更新人物状态
+    if (bubbleCrackEffect.timeFreeze) {
+      return
+    }
+
     this.animations.update(performance.now())
 
     // 更新颜色反转进度
@@ -165,8 +178,9 @@ class StickPerson {
       // 当漂浮时，逐渐反转颜色
       colorInversionProgress = Math.min(elapsedTime / COLOR_INVERSION_DURATION, 1)
     } else if (this.state === PersonState.FALLING) {
-      // 当下落时，逐渐恢复颜色
-      colorInversionProgress = Math.max(1 - elapsedTime / COLOR_INVERSION_DURATION, 0)
+      // 当下落时，逐渐恢复颜色 - 使用更长的时间让背景慢慢变暗
+      const fallDuration = 3.0 // 下落时颜色恢复的持续时间（秒）
+      colorInversionProgress = Math.max(1 - elapsedTime / fallDuration, 0)
     } else if (this.state === PersonState.BLOWING) {
       // 确保在吹泡泡状态颜色完全恢复
       colorInversionProgress = 0
@@ -200,15 +214,24 @@ class StickPerson {
       const bubblePos = this.bubble.getPosition()
       const bubbleRadius = this.bubble.getRadius()
 
-      // 创建爆炸效果
-      burstEffect = {
+      // 创建泡泡破裂效果
+      bubbleCrackEffect = {
         active: true,
+        phase: 'crack',
         progress: 0,
         x: bubblePos.x,
         y: bubblePos.y,
         radius: bubbleRadius,
-        startTime: this.p5.millis()
+        startTime: this.p5.millis(),
+        crackPoints: [],
+        leftHalf: { x: bubblePos.x, y: bubblePos.y, velocityX: -1, velocityY: 1 },
+        rightHalf: { x: bubblePos.x, y: bubblePos.y, velocityX: 1, velocityY: 1 },
+        timeFreeze: true,
+        originalBubble: this.bubble
       }
+
+      // 生成裂痕路径点
+      this.generateCrackPath(bubblePos.x, bubblePos.y, bubbleRadius)
 
       // 创建涟漪效果
       rippleManager.createRipple(bubblePos.x, bubblePos.y, bubbleRadius)
@@ -223,6 +246,25 @@ class StickPerson {
       // 给予向下的初始速度
       this.velocity = this.p5.createVector(this.p5.random(-1, 1), 1)
     }
+  }
+
+  // 生成裂痕路径点
+  generateCrackPath(centerX: number, centerY: number, radius: number) {
+    const points = []
+    const startY = centerY - radius
+    const endY = centerY + radius
+    const steps = 20 // 裂痕路径点数量
+
+    for (let i = 0; i <= steps; i++) {
+      const progress = i / steps
+      const y = startY + (endY - startY) * progress
+      // 添加一些随机偏移让裂痕看起来更自然
+      const xOffset = this.p5.random(-radius * 0.1, radius * 0.1) * Math.sin(progress * Math.PI)
+      const x = centerX + xOffset
+      points.push({ x, y })
+    }
+
+    bubbleCrackEffect.crackPoints = points
   }
 
   display() {
@@ -700,36 +742,20 @@ function draw(p5: P5CanvasInstance) {
   // 移动原点到屏幕中心
   p5.translate(p5.width / 2, p5.height / 2)
 
-  // 判断是否需要绘制分裂效果
-  if (burstEffect.active) {
-    // 先绘制初始状态的画面（在最底层）
-    if (burstEffect.progress > 0.5) {
-      // 当分裂开始倒下时，显示初始状态内容
-      p5.push()
-      // 返回初始状态的背景
-      p5.background(20)
+  // 判断是否有泡泡破裂效果
+  if (bubbleCrackEffect.active) {
+    // 更新泡泡破裂效果
+    updateBubbleCrackEffect(p5)
 
-      // 绘制初始状态的地面
-      p5.stroke(60)
-      p5.strokeWeight(2)
-      p5.line(-p5.width / 2, p5.height / 2 - FLOOR_HEIGHT, p5.width / 2, p5.height / 2 - FLOOR_HEIGHT)
-
-      // 由于是初始状态，所以我们只绘制基础内容
-      // 这里可以考虑添加一些元素表示初始状态
-
-      p5.pop()
-    }
-
-    // 当有分裂效果时，先更新爆炸效果
-    updateBurstEffect(p5)
-
-    // 在分裂的前半部分，仍然绘制正常内容
-    if (burstEffect.progress < 0.5) {
+    // 在时间冻结期间，绘制静止画面
+    if (bubbleCrackEffect.timeFreeze) {
+      drawNormalContent(p5, floorColor)
+      // 绘制泡泡破裂效果
+      drawBubbleCrackEffect(p5)
+    } else {
+      // 时间恢复流动，正常绘制
       drawNormalContent(p5, floorColor)
     }
-
-    // 绘制分裂的屏幕
-    drawBurstEffect(p5)
   } else {
     // 正常绘制
     drawNormalContent(p5, floorColor)
@@ -754,166 +780,247 @@ function drawNormalContent(p5: P5CanvasInstance, floorColor: Color) {
   person.display()
 }
 
-// 更新爆炸效果
-function updateBurstEffect(p5: P5CanvasInstance) {
-  if (burstEffect.active) {
-    const elapsedTime = (p5.millis() - burstEffect.startTime) / 1000
-    burstEffect.progress = Math.min(elapsedTime / BURST_ANIMATION_DURATION, 1)
+// 更新泡泡破裂效果
+function updateBubbleCrackEffect(p5: P5CanvasInstance) {
+  if (bubbleCrackEffect.active) {
+    const elapsedTime = (p5.millis() - bubbleCrackEffect.startTime) / 1000
 
-    if (burstEffect.progress >= 1) {
-      burstEffect.active = false
+    switch (bubbleCrackEffect.phase) {
+      case 'crack':
+        // 裂痕出现阶段
+        bubbleCrackEffect.progress = Math.min(elapsedTime / CRACK_APPEAR_DURATION, 1)
+        if (bubbleCrackEffect.progress >= 1) {
+          bubbleCrackEffect.phase = 'split'
+          bubbleCrackEffect.startTime = p5.millis()
+          bubbleCrackEffect.progress = 0
+        }
+        break
+
+      case 'split':
+        // 泡泡分裂阶段
+        bubbleCrackEffect.progress = Math.min(elapsedTime / BUBBLE_SPLIT_DURATION, 1)
+
+        // 更新两半泡泡的位置
+        const gravity = 0.05
+        bubbleCrackEffect.leftHalf.velocityY += gravity
+        bubbleCrackEffect.rightHalf.velocityY += gravity
+
+        bubbleCrackEffect.leftHalf.x += bubbleCrackEffect.leftHalf.velocityX
+        bubbleCrackEffect.leftHalf.y += bubbleCrackEffect.leftHalf.velocityY
+        bubbleCrackEffect.rightHalf.x += bubbleCrackEffect.rightHalf.velocityX
+        bubbleCrackEffect.rightHalf.y += bubbleCrackEffect.rightHalf.velocityY
+
+        if (bubbleCrackEffect.progress >= 1) {
+          bubbleCrackEffect.phase = 'fade'
+          bubbleCrackEffect.startTime = p5.millis()
+          bubbleCrackEffect.progress = 0
+        }
+        break
+
+      case 'fade':
+        // 泡泡消散阶段
+        bubbleCrackEffect.progress = Math.min(elapsedTime / BUBBLE_FADE_DURATION, 1)
+        if (bubbleCrackEffect.progress >= 1) {
+          bubbleCrackEffect.phase = 'fall'
+          bubbleCrackEffect.timeFreeze = false // 解除时间冻结
+          bubbleCrackEffect.active = false
+        }
+        break
     }
   }
 }
 
-// 绘制整屏裂开效果
-function drawBurstEffect(p5: P5CanvasInstance) {
-  if (burstEffect.active) {
-    p5.push()
+// 绘制泡泡破裂效果
+function drawBubbleCrackEffect(p5: P5CanvasInstance) {
+  if (!bubbleCrackEffect.active) return
 
-    // 计算屏幕分裂与倒塌的动画进度
-    const splitProgress = Math.min(burstEffect.progress * 2, 1) // 前半段动画：屏幕分裂
-    const fallProgress = burstEffect.progress > 0.5 ? (burstEffect.progress - 0.5) * 2 : 0 // 后半段动画：两侧倒下
+  p5.push()
 
-    // 分裂的宽度
-    const maxSeparation = p5.width * 0.1 // 控制分裂的最大宽度
-    const separationDistance = Easing.Cubic.Out(splitProgress) * maxSeparation
+  const { x, y, radius, phase, progress } = bubbleCrackEffect
 
-    // 倒塌的角度 (0->90度)
-    const maxFallAngle = p5.PI / 2 // 90度
-    const leftFallAngle = Easing.Cubic.In(fallProgress) * maxFallAngle
-    const rightFallAngle = -Easing.Cubic.In(fallProgress) * maxFallAngle
+  switch (phase) {
+    case 'crack':
+      // 绘制完整的泡泡和逐渐出现的裂痕
+      if (bubbleCrackEffect.originalBubble) {
+        bubbleCrackEffect.originalBubble.display()
+      }
+      drawBubbleCrack(p5, x, y, radius, progress)
+      break
 
-    // 绘制分裂线
-    drawCrackLine(p5)
+    case 'split':
+      // 绘制分裂的两半泡泡
+      drawSplittingBubbleHalves(p5, radius, progress)
+      break
 
-    // 绘制两侧屏幕内容
-    drawHalfScreen(p5, -1, separationDistance, leftFallAngle, fallProgress) // 左半部分
-    drawHalfScreen(p5, 1, separationDistance, rightFallAngle, fallProgress) // 右半部分
-
-    p5.pop()
+    case 'fade':
+      // 绘制消散的泡泡碎片
+      drawFadingBubbleFragments(p5, x, y, radius, progress)
+      break
   }
+
+  p5.pop()
 }
 
-// 绘制中间的裂缝线
-function drawCrackLine(p5: P5CanvasInstance) {
+// 绘制泡泡裂痕
+function drawBubbleCrack(p5: P5CanvasInstance, centerX: number, centerY: number, radius: number, progress: number) {
+  if (bubbleCrackEffect.crackPoints.length === 0) return
+
   p5.push()
   p5.noFill()
 
-  // 裂缝颜色
-  const crackColor = p5.lerpColor(
-    p5.color(255, 255, 255, 180),
-    p5.color(20, 20, 20, 180),
-    colorInversionProgress
-  )
-
+  // 裂痕颜色 - 深色，确保与背景有对比
+  const crackColor = p5.color(60, 60, 60, 120)
   p5.stroke(crackColor)
-  p5.strokeWeight(2)
+  p5.strokeWeight(1)
 
-  // 使用噪声制造不规则的中央裂缝
+  // 绘制裂痕路径，根据进度逐渐显示
+  const visiblePoints = Math.floor(bubbleCrackEffect.crackPoints.length * progress)
+
   p5.beginShape()
-  const screenHeight = p5.height
-  const jaggedness = 5 // 锯齿度
-
-  for (let y = -screenHeight / 2; y < screenHeight / 2; y += 20) {
-    const xNoise = p5.noise(y * 0.02, p5.frameCount * 0.01) * jaggedness - jaggedness / 2
-    p5.vertex(xNoise, y)
+  p5.noFill()
+  for (let i = 0; i < visiblePoints; i++) {
+    const point = bubbleCrackEffect.crackPoints[i]
+    if (i === 0) {
+      p5.vertex(point.x, point.y)
+    } else {
+      p5.vertex(point.x, point.y)
+    }
   }
   p5.endShape()
 
   p5.pop()
 }
 
-// 绘制屏幕的一半（带倒塌效果）
-function drawHalfScreen(p5: P5CanvasInstance, side: number, separation: number, fallAngle: number, fallProgress: number) {
+// 绘制分裂中的泡泡两半
+function drawSplittingBubbleHalves(p5: P5CanvasInstance, radius: number, progress: number) {
+  const opacity = 1 - progress * 0.3
+
   p5.push()
 
-  // 应用分裂位移
-  p5.translate(side * separation / 2, 0)
+  // 左半泡泡
+  p5.push()
+  drawHalfBubbleWithCrack(p5, bubbleCrackEffect.leftHalf.x, bubbleCrackEffect.leftHalf.y, radius, 'left', opacity)
+  p5.pop()
 
-  // 保存当前状态中心点作为倒塌的旋转原点
-  if (side < 0) {
-    // 左侧以右边缘为支点倒下
-    p5.translate(p5.width / 2, 0)
-    p5.rotate(fallAngle)
-    p5.translate(-p5.width / 2, 0)
-  } else {
-    // 右侧以左边缘为支点倒下
-    p5.translate(-p5.width / 2, 0)
-    p5.rotate(fallAngle)
-    p5.translate(p5.width / 2, 0)
+  // 右半泡泡
+  p5.push()
+  drawHalfBubbleWithCrack(p5, bubbleCrackEffect.rightHalf.x, bubbleCrackEffect.rightHalf.y, radius, 'right', opacity)
+  p5.pop()
+
+  p5.pop()
+}
+
+// 绘制消散的泡泡碎片
+function drawFadingBubbleFragments(p5: P5CanvasInstance, centerX: number, centerY: number, radius: number, progress: number) {
+  const opacity = 1 - progress
+  const fragmentCount = 8
+
+  p5.push()
+
+  for (let i = 0; i < fragmentCount; i++) {
+    const angle = (i / fragmentCount) * p5.TWO_PI
+    const distance = progress * radius * 0.8
+    const x = centerX + Math.cos(angle) * distance
+    const y = centerY + Math.sin(angle) * distance
+    const size = radius * 0.2 * (1 - progress)
+
+    // 碎片颜色 - 带点深色
+    const fragmentColor = p5.color(80, 80, 120, opacity * 150)
+    p5.fill(fragmentColor)
+    p5.noStroke()
+    p5.circle(x, y, size)
   }
 
-  // 随着倒塌进度增加透明度
-  const opacity = 1 - fallProgress * 0.8
+  p5.pop()
+}
 
-  // 绘制这一半的内容
-  // 背景
-  p5.noStroke()
-  const bgColor = p5.lerpColor(
-    p5.color(20), // 原始背景颜色：深色
-    p5.color(235), // 反转后背景颜色：浅色
-    colorInversionProgress
-  )
-  // 使用rgba格式设置填充色
-  p5.fill(
-    p5.red(bgColor),
-    p5.green(bgColor),
-    p5.blue(bgColor),
-    255 * opacity
-  )
+// 绘制半个泡泡
+function drawHalfBubble(p5: P5CanvasInstance, centerX: number, centerY: number, radius: number, side: 'left' | 'right', opacity: number) {
+  p5.push()
 
-  // 绘制矩形覆盖这一半屏幕
-  if (side < 0) {
-    // 左半屏
-    p5.rect(-p5.width, -p5.height / 2, p5.width, p5.height)
+  // 创建遮罩效果来显示半个泡泡
+  const ctx = p5.drawingContext as CanvasRenderingContext2D
+  ctx.save()
+
+  // 设置裁剪区域
+  ctx.beginPath()
+  if (side === 'left') {
+    ctx.rect(centerX - radius, centerY - radius, radius, radius * 2)
   } else {
-    // 右半屏
-    p5.rect(0, -p5.height / 2, p5.width, p5.height)
+    ctx.rect(centerX, centerY - radius, radius, radius * 2)
+  }
+  ctx.clip()
+
+  // 绘制泡泡（使用简化版本）
+  const bubbleColor = p5.color(200, 220, 255, opacity * 100)
+  p5.fill(bubbleColor)
+  p5.stroke(255, 255, 255, opacity * 150)
+  p5.strokeWeight(1)
+  p5.circle(centerX, centerY, radius * 2)
+
+  ctx.restore()
+  p5.pop()
+}
+
+// 绘制带有裂痕边界的半个泡泡
+function drawHalfBubbleWithCrack(p5: P5CanvasInstance, centerX: number, centerY: number, radius: number, side: 'left' | 'right', opacity: number) {
+  p5.push()
+
+  // 创建裁剪路径，使用裂痕形状作为边界
+  const ctx = p5.drawingContext as CanvasRenderingContext2D
+  ctx.save()
+
+  // 创建裂痕形状的裁剪路径
+  ctx.beginPath()
+
+  if (bubbleCrackEffect.crackPoints.length > 0) {
+    // 使用裂痕路径创建裁剪区域
+    const crackPoints = bubbleCrackEffect.crackPoints
+
+    if (side === 'left') {
+      // 左半部分：从泡泡左边缘到裂痕路径
+      ctx.arc(centerX, centerY, radius, Math.PI * 0.5, Math.PI * 1.5, false)
+      // 沿着裂痕路径
+      for (let i = crackPoints.length - 1; i >= 0; i--) {
+        ctx.lineTo(crackPoints[i].x, crackPoints[i].y)
+      }
+    } else {
+      // 右半部分：从裂痕路径到泡泡右边缘
+      ctx.moveTo(crackPoints[0].x, crackPoints[0].y)
+      for (let i = 1; i < crackPoints.length; i++) {
+        ctx.lineTo(crackPoints[i].x, crackPoints[i].y)
+      }
+      // 沿着泡泡右半边缘
+      ctx.arc(centerX, centerY, radius, Math.PI * 1.5, Math.PI * 0.5, false)
+    }
+
+    ctx.closePath()
+  } else {
+    // 如果没有裂痕点，使用简单的半圆
+    if (side === 'left') {
+      ctx.rect(centerX - radius, centerY - radius, radius, radius * 2)
+    } else {
+      ctx.rect(centerX, centerY - radius, radius, radius * 2)
+    }
   }
 
-  // 绘制地面和其他内容
-  const floorColor = p5.lerpColor(
-    p5.color(60), // 原始地面颜色
-    p5.color(110), // 反转后地面颜色
-    colorInversionProgress
-  )
+  ctx.clip()
 
-  // 使用rgba格式设置线条颜色
-  p5.stroke(
-    p5.red(floorColor),
-    p5.green(floorColor),
-    p5.blue(floorColor),
-    255 * opacity
-  )
-  p5.strokeWeight(2)
+  // 绘制完整的泡泡效果
+  if (bubbleCrackEffect.originalBubble) {
+    // 临时移动泡泡位置到当前半泡泡位置
+    const originalX = bubbleCrackEffect.originalBubble.getPosition().x
+    const originalY = bubbleCrackEffect.originalBubble.getPosition().y
+    bubbleCrackEffect.originalBubble.setPosition(centerX, centerY)
 
-  // 地面线
-  const floorY = p5.height / 2 - FLOOR_HEIGHT
-  if (side < 0) {
-    p5.line(-p5.width, floorY, 0, floorY)
-  } else {
-    p5.line(0, floorY, p5.width, floorY)
+    // 绘制泡泡
+    bubbleCrackEffect.originalBubble.display()
+
+    // 恢复原始位置
+    bubbleCrackEffect.originalBubble.setPosition(originalX, originalY)
   }
 
-  // 添加边缘的阴影效果，增强立体感
-  p5.noStroke()
-  if (side < 0) {
-    // 左侧屏幕右边缘阴影
-    const shadowGradient = p5.drawingContext.createLinearGradient(-5, 0, 5, 0)
-    shadowGradient.addColorStop(0, `rgba(0,0,0,${0.5 * opacity})`)
-    shadowGradient.addColorStop(1, 'rgba(0,0,0,0)')
-    p5.drawingContext.fillStyle = shadowGradient
-    p5.drawingContext.fillRect(-5, -p5.height / 2, 10, p5.height)
-  } else {
-    // 右侧屏幕左边缘阴影
-    const shadowGradient = p5.drawingContext.createLinearGradient(-5, 0, 5, 0)
-    shadowGradient.addColorStop(0, 'rgba(0,0,0,0)')
-    shadowGradient.addColorStop(1, `rgba(0,0,0,${0.5 * opacity})`)
-    p5.drawingContext.fillStyle = shadowGradient
-    p5.drawingContext.fillRect(-5, -p5.height / 2, 10, p5.height)
-  }
-
+  ctx.restore()
   p5.pop()
 }
 
