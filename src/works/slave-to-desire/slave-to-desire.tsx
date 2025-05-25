@@ -444,8 +444,8 @@ class Bubble {
     // 首先绘制一个微弱的外发光
     p5.noStroke()
     const outerGlowColor = isInverted
-      ? p5.color(50, 30, 20, 30)
-      : p5.color(255, 255, 255, 30)
+      ? p5.color(50, 30, 20, 20) // 降低不透明度从30到20
+      : p5.color(255, 255, 255, 20) // 降低不透明度从30到20
 
     // 绘制外发光
     p5.fill(outerGlowColor)
@@ -457,7 +457,8 @@ class Bubble {
     // 边缘光晕效果 - 使用细线
     p5.noFill()
     p5.strokeWeight(1)
-    const edgeColor = p5.color(255, 255, 255, 180)
+    // 增加边缘透明度，从180降到120
+    const edgeColor = p5.color(255, 255, 255, 120)
 
     p5.stroke(edgeColor)
     p5.circle(x, y, r * 2)
@@ -489,7 +490,8 @@ class Bubble {
 
       // 统一使用明亮的彩色方案，不考虑颜色反转
       const brightness = 80 - i * 5
-      gradient.addColorStop(stop, `hsla(${hue}, 80%, ${brightness}%, ${0.7 - stop * 0.3})`)
+      // 增加透明度，从原来的0.7降到0.4，使泡泡膜更通透
+      gradient.addColorStop(stop, `hsla(${hue}, 80%, ${brightness}%, ${0.4 - stop * 0.2})`)
     }
 
     // 应用渐变
@@ -507,7 +509,8 @@ class Bubble {
     const p5 = this.p5
 
     // 使用固定的高光颜色，不考虑颜色反转
-    const highlightColor = p5.color(255, 255, 255, 180)
+    // 增加高光透明度，使其更明显且通透
+    const highlightColor = p5.color(255, 255, 255, 220)
 
     p5.push()
     p5.noFill()
@@ -901,14 +904,14 @@ function drawHalfScreen(p5: P5CanvasInstance, side: number, separation: number, 
     shadowGradient.addColorStop(0, `rgba(0,0,0,${0.5 * opacity})`)
     shadowGradient.addColorStop(1, 'rgba(0,0,0,0)')
     p5.drawingContext.fillStyle = shadowGradient
-    p5.rect(-5, -p5.height / 2, 10, p5.height)
+    p5.drawingContext.fillRect(-5, -p5.height / 2, 10, p5.height)
   } else {
     // 右侧屏幕左边缘阴影
     const shadowGradient = p5.drawingContext.createLinearGradient(-5, 0, 5, 0)
     shadowGradient.addColorStop(0, 'rgba(0,0,0,0)')
     shadowGradient.addColorStop(1, `rgba(0,0,0,${0.5 * opacity})`)
     p5.drawingContext.fillStyle = shadowGradient
-    p5.rect(-5, -p5.height / 2, 10, p5.height)
+    p5.drawingContext.fillRect(-5, -p5.height / 2, 10, p5.height)
   }
 
   p5.pop()
