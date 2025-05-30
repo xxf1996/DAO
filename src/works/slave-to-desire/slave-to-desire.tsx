@@ -13,11 +13,11 @@ const FLOOR_HEIGHT = 100 // 距离底部的地面高度
 const PERSON_HEIGHT = 80 // 将人物高度从60增加到100
 const COLOR_INVERSION_DURATION = 1.0 // 颜色反转的过渡时间（秒）
 const CRACK_APPEAR_DURATION = 10.0 // 裂痕出现持续时间（秒）
-const BUBBLE_SPLIT_DURATION = 3.0 // 泡泡分裂持续时间（秒）
+const BUBBLE_SPLIT_DURATION = 1.0 // 泡泡分裂持续时间（秒）
 const BUBBLE_FADE_DURATION = 0.6 // 泡泡消散持续时间（秒）
 const FLOAT_SWING_AMPLITUDE = 1.2 // 漂浮时左右晃动的幅度
-const MIN_FLOAT_TIME = 15000 // 最小漂浮时间（毫秒）
-const MAX_FLOAT_TIME = 30000 // 最大漂浮时间（毫秒）
+const MIN_FLOAT_TIME = 12000 // 最小漂浮时间（毫秒）
+const MAX_FLOAT_TIME = 24000 // 最大漂浮时间（毫秒）
 const BUBBLE_REFRACTION = 0.2 // 泡泡折射率
 const BUBBLE_GRADIENT_STOPS = 8 // 泡泡彩色膜的渐变停止点数量
 
@@ -921,52 +921,71 @@ function drawSplittingBubbleHalves(p5: P5CanvasInstance, radius: number, progres
 // 绘制消散的泡泡碎片
 function drawFadingBubbleFragments(p5: P5CanvasInstance, centerX: number, centerY: number, radius: number, progress: number) {
   const opacity = 1 - progress
-  const fragmentCount = 8
+  const dustParticlesPerHalf = 12 // 每半个泡泡生成的尘埃粒子数量
 
   p5.push()
 
-  for (let i = 0; i < fragmentCount; i++) {
-    const angle = (i / fragmentCount) * p5.TWO_PI
-    const distance = progress * radius * 0.8
-    const x = centerX + Math.cos(angle) * distance
-    const y = centerY + Math.sin(angle) * distance
-    const size = radius * 0.2 * (1 - progress)
+  // 从左半泡泡位置生成尘埃
+  for (let i = 0; i < dustParticlesPerHalf; i++) {
+    const angle = p5.random(p5.TWO_PI)
+    const distance = progress * radius * p5.random(0.5, 1.2) // 随机扩散距离
+    const x = bubbleCrackEffect.leftHalf.x + Math.cos(angle) * distance
+    const y = bubbleCrackEffect.leftHalf.y + Math.sin(angle) * distance + progress * 30 // 轻微下落
+    const size = p5.random(1, 3) * (1 - progress) // 随机大小，逐渐缩小
 
-    // 碎片颜色 - 带点深色
-    const fragmentColor = p5.color(80, 80, 120, opacity * 150)
-    p5.fill(fragmentColor)
+    // 尘埃颜色 - 更加细微和半透明
+    const dustColor = p5.lerpColor(
+      p5.color(180, 200, 220, opacity * 180),
+      p5.color(60, 40, 30, opacity * 180),
+      colorInversionProgress
+    )
+    p5.fill(dustColor)
     p5.noStroke()
     p5.circle(x, y, size)
   }
 
-  p5.pop()
-}
+  // 从右半泡泡位置生成尘埃
+  for (let i = 0; i < dustParticlesPerHalf; i++) {
+    const angle = p5.random(p5.TWO_PI)
+    const distance = progress * radius * p5.random(0.5, 1.2) // 随机扩散距离
+    const x = bubbleCrackEffect.rightHalf.x + Math.cos(angle) * distance
+    const y = bubbleCrackEffect.rightHalf.y + Math.sin(angle) * distance + progress * 30 // 轻微下落
+    const size = p5.random(1, 3) * (1 - progress) // 随机大小，逐渐缩小
 
-// 绘制半个泡泡
-function drawHalfBubble(p5: P5CanvasInstance, centerX: number, centerY: number, radius: number, side: 'left' | 'right', opacity: number) {
-  p5.push()
-
-  // 创建遮罩效果来显示半个泡泡
-  const ctx = p5.drawingContext as CanvasRenderingContext2D
-  ctx.save()
-
-  // 设置裁剪区域
-  ctx.beginPath()
-  if (side === 'left') {
-    ctx.rect(centerX - radius, centerY - radius, radius, radius * 2)
-  } else {
-    ctx.rect(centerX, centerY - radius, radius, radius * 2)
+    // 尘埃颜色 - 更加细微和半透明
+    const dustColor = p5.lerpColor(
+      p5.color(180, 200, 220, opacity * 180),
+      p5.color(60, 40, 30, opacity * 180),
+      colorInversionProgress
+    )
+    p5.fill(dustColor)
+    p5.noStroke()
+    p5.circle(x, y, size)
   }
-  ctx.clip()
 
-  // 绘制泡泡（使用简化版本）
-  const bubbleColor = p5.color(200, 220, 255, opacity * 100)
-  p5.fill(bubbleColor)
-  p5.stroke(255, 255, 255, opacity * 150)
-  p5.strokeWeight(1)
-  p5.circle(centerX, centerY, radius * 2)
+  // 添加一些额外的微小粒子增强尘埃效果
+  const extraDustCount = 8
+  for (let i = 0; i < extraDustCount; i++) {
+    // 在两半泡泡之间的区域生成一些额外尘埃
+    const mixX = p5.lerp(bubbleCrackEffect.leftHalf.x, bubbleCrackEffect.rightHalf.x, p5.random())
+    const mixY = p5.lerp(bubbleCrackEffect.leftHalf.y, bubbleCrackEffect.rightHalf.y, p5.random())
 
-  ctx.restore()
+    const angle = p5.random(p5.TWO_PI)
+    const distance = progress * radius * p5.random(0.3, 0.8)
+    const x = mixX + Math.cos(angle) * distance
+    const y = mixY + Math.sin(angle) * distance + progress * 20
+    const size = p5.random(0.5, 1.5) * (1 - progress)
+
+    const dustColor = p5.lerpColor(
+      p5.color(160, 180, 200, opacity * 120),
+      p5.color(40, 30, 20, opacity * 120),
+      colorInversionProgress
+    )
+    p5.fill(dustColor)
+    p5.noStroke()
+    p5.circle(x, y, size)
+  }
+
   p5.pop()
 }
 
