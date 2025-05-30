@@ -431,6 +431,8 @@ class Bubble {
   private membraneThickness: number // 泡泡膜的厚度
   private rotationAngle: number = 0 // 泡泡膜的旋转角度
   private rotationSpeed: number // 旋转速度
+  private noiseOffset: number // 噪声偏移值，用于一维噪声
+  private noiseScale: number // 噪声缩放比例
 
   constructor(private p5: P5CanvasInstance, x: number, y: number, radius: number, growSpeed: number) {
     this.position = p5.createVector(x, y)
@@ -445,6 +447,9 @@ class Bubble {
     this.hueOffset = p5.random(360) // 随机颜色偏移
     this.membraneThickness = p5.random(1, 2) // 泡泡膜厚度
     this.rotationSpeed = p5.random(0.002, 0.005) * (p5.random() > 0.5 ? 1 : -1) // 随机旋转速度和方向
+    // 噪声相关属性
+    this.noiseOffset = p5.random(1000) // 为每个泡泡创建独特的噪声偏移
+    this.noiseScale = p5.random(0.003, 0.008) // 噪声时间缩放，控制摆动频率
   }
 
   update() {
@@ -466,8 +471,11 @@ class Bubble {
   float() {
     // 泡泡上升
     this.position.y -= BUBBLE_FLOAT_SPEED
-    // 增大左右摆动幅度，使用FLOAT_SWING_AMPLITUDE常量
-    this.position.x += this.p5.sin(this.p5.frameCount * 0.05) * FLOAT_SWING_AMPLITUDE
+    // 使用一维噪声实现更自然的左右摆动
+    const noiseValue = this.p5.noise(this.p5.frameCount * this.noiseScale + this.noiseOffset)
+    // 将噪声值从[0,1]映射到[-1,1]范围
+    const swingOffset = (noiseValue - 0.5) * 2 * FLOAT_SWING_AMPLITUDE
+    this.position.x += swingOffset
   }
 
   display() {
