@@ -178,9 +178,23 @@ class StickPerson {
       // 当漂浮时，逐渐反转颜色
       colorInversionProgress = Math.min(elapsedTime / COLOR_INVERSION_DURATION, 1)
     } else if (this.state === PersonState.FALLING) {
-      // 当下落时，逐渐恢复颜色 - 使用更长的时间让背景慢慢变暗
-      const fallDuration = 3.0 // 下落时颜色恢复的持续时间（秒）
-      colorInversionProgress = Math.max(1 - elapsedTime / fallDuration, 0)
+      // 当下落时，逐渐恢复颜色 - 使用渐变而不是突变
+      // 计算坠落进度：从开始坠落到着地的进度
+      const fallStartY = this.position.y // 当前位置
+      const groundY = this.p5.height / 2 - FLOOR_HEIGHT // 地面位置
+      const totalFallDistance = Math.abs(groundY - fallStartY) // 总坠落距离
+
+      // 如果坠落距离很小，直接使用时间进度
+      if (totalFallDistance < 50) {
+        const fallDuration = 2.5 // 坠落时颜色恢复的持续时间（秒）
+        colorInversionProgress = Math.max(1 - elapsedTime / fallDuration, 0)
+      } else {
+        // 基于位置的渐变：越接近地面，背景越暗
+        const fallProgress = Math.min((groundY - this.position.y) / totalFallDistance, 1)
+        // 使用缓动函数让颜色变化更平滑
+        const easedProgress = 1 - Math.pow(1 - fallProgress, 1.5) // ease-out
+        colorInversionProgress = Math.max(1 - easedProgress, 0)
+      }
     } else if (this.state === PersonState.BLOWING) {
       // 确保在吹泡泡状态颜色完全恢复
       colorInversionProgress = 0
@@ -239,13 +253,17 @@ class StickPerson {
       // 删除泡泡
       this.bubble = null
 
-      // 改变状态为下落
-      this.state = PersonState.FALLING
-      this.lastStateChange = this.p5.millis()
-
-      // 给予向下的初始速度
-      this.velocity = this.p5.createVector(this.p5.random(-1, 1), 1)
+      // 注意：不在这里切换状态，而是在泡泡效果完全结束后再切换
+      // 状态切换逻辑移到updateBubbleCrackEffect的'fall'阶段
     }
+  }
+
+  // 开始坠落状态
+  startFalling() {
+    this.state = PersonState.FALLING
+    this.lastStateChange = this.p5.millis()
+    // 给予向下的初始速度
+    this.velocity = this.p5.createVector(this.p5.random(-1, 1), 1)
   }
 
   // 生成裂痕路径点
@@ -281,132 +299,198 @@ class StickPerson {
     this.p5.strokeWeight(2)
     this.p5.noFill()
 
-    // 绘制人物（坐姿）
-    // 头部
-    this.p5.circle(this.position.x, this.position.y - this.height * 0.7, 30) // 头部尺寸更大
+    if (this.state === PersonState.FALLING) {
+      // 坠落状态 - 完全重新绘制为平躺V型姿势
 
-    // 身体
-    this.p5.line(
-      this.position.x, this.position.y - this.height * 0.6,
-      this.position.x, this.position.y - this.height * 0.3
-    )
-
-    // 手臂
-    if (this.state === PersonState.BLOWING) {
-      // 吹泡泡状态，一只手臂拿着吹泡泡工具放在嘴边
-      // 手臂位置随着吹泡泡动作轻微摆动
-      const handOffset = Math.sin(this.blowingPhase) * 2
-
-      // 嘴部位置
-      const mouthX = this.position.x + 8
-      const mouthY = this.position.y - this.height * 0.65
-
-      // 手的位置（拿着管子靠近嘴边，但更向外一些）
-      const handX = mouthX + 15 // 向外移动手的位置
-      const handY = mouthY + 10 + handOffset
-
-      // 右手举着吹泡泡工具靠近嘴边
+      // 1. 先绘制水平的身体（躯干）
       this.p5.line(
-        this.position.x, this.position.y - this.height * 0.5,
-        handX, handY
+        this.position.x - 15, this.position.y - this.height * 0.3,
+        this.position.x + 15, this.position.y - this.height * 0.3
       )
 
-      // 左手放在腿上
+      // 2. 绘制向上抬起的头部
+      // 头部圆形（向上偏移）
+      this.p5.circle(
+        this.position.x - 20, this.position.y - this.height * 0.55, // 头部向上抬起
+        25
+      )
+
+      // 连接头部和身体的脖子
       this.p5.line(
-        this.position.x, this.position.y - this.height * 0.5,
-        this.position.x - 20, this.position.y - this.height * 0.3
+        this.position.x - 15, this.position.y - this.height * 0.3,
+        this.position.x - 20, this.position.y - this.height * 0.43
       )
 
-      // 移除原来的圆形手表示，用线条表示手指
-      this.p5.stroke(strokeColor)
-      // 绘制简单的手指（几条小线）
-      const fingerLength = 3
-      // 拇指
+      // 3. 绘制向上抬起的手臂
+      // 左臂向上伸展
       this.p5.line(
-        handX, handY,
-        handX - 2, handY - fingerLength
+        this.position.x - 10, this.position.y - this.height * 0.3,
+        this.position.x - 30, this.position.y - this.height * 0.6
       )
-      // 其他手指
+      // 右臂向上伸展
       this.p5.line(
-        handX, handY,
-        handX + fingerLength, handY - 2
+        this.position.x + 10, this.position.y - this.height * 0.3,
+        this.position.x + 30, this.position.y - this.height * 0.6
       )
 
-      // 绘制吹泡泡工具（长细管子）- 从嘴到手，并超出手一点
-      const toolColor = this.p5.lerpColor(
-        this.p5.color(180, 180, 220),
-        this.p5.color(50, 50, 20),
-        colorInversionProgress
-      )
-      this.p5.stroke(toolColor)
-      this.p5.strokeWeight(1.5)
-
-      // 管子超出手一点的末端
-      const toolEndX = handX + 5
-      const toolEndY = handY + 5
-
-      // 只保留一段管子，从嘴边到手边，并超出手一点
+      // 4. 绘制向上抬起的腿部
+      // 左大腿（从身体向上抬起）
       this.p5.line(
-        mouthX, mouthY,
-        toolEndX, toolEndY
+        this.position.x + 15, this.position.y - this.height * 0.3,
+        this.position.x + 25, this.position.y - this.height * 0.6
       )
-      this.bubble?.setPosition(toolEndX, toolEndY)
+      // 右大腿（从身体向上抬起）
+      this.p5.line(
+        this.position.x + 15, this.position.y - this.height * 0.3,
+        this.position.x + 35, this.position.y - this.height * 0.6
+      )
 
-      // 绘制嘴巴（随着吹泡泡动作变化）
-      this.p5.stroke(strokeColor)
-      this.p5.strokeWeight(2)
-      if (this.bubble) {
-        // 吹气状态的嘴巴 - 圆形
-        this.p5.ellipse(
-          mouthX - 4,
-          mouthY,
-          5, 4
-        )
-      } else {
-        // 普通状态的嘴巴
+      // 左小腿（继续向上）
+      this.p5.line(
+        this.position.x + 25, this.position.y - this.height * 0.6,
+        this.position.x + 20, this.position.y - this.height * 0.8
+      )
+      // 右小腿（继续向上）
+      this.p5.line(
+        this.position.x + 35, this.position.y - this.height * 0.6,
+        this.position.x + 30, this.position.y - this.height * 0.8
+      )
+
+      // 5. 张开的嘴巴（坠落时的惊恐表情）
+      this.p5.ellipse(
+        this.position.x - 20, this.position.y - this.height * 0.55,
+        6, 8
+      )
+    } else {
+      // 非坠落状态的正常绘制逻辑
+
+      // 绘制人物（坐姿）
+      // 头部
+      this.p5.circle(this.position.x, this.position.y - this.height * 0.7, 30) // 头部尺寸更大
+
+      // 身体
+      this.p5.line(
+        this.position.x, this.position.y - this.height * 0.6,
+        this.position.x, this.position.y - this.height * 0.3
+      )
+
+      // 手臂
+      if (this.state === PersonState.BLOWING) {
+        // 吹泡泡状态，一只手臂拿着吹泡泡工具放在嘴边
+        // 手臂位置随着吹泡泡动作轻微摆动
+        const handOffset = Math.sin(this.blowingPhase) * 2
+
+        // 嘴部位置
+        const mouthX = this.position.x + 8
+        const mouthY = this.position.y - this.height * 0.65
+
+        // 手的位置（拿着管子靠近嘴边，但更向外一些）
+        const handX = mouthX + 15 // 向外移动手的位置
+        const handY = mouthY + 10 + handOffset
+
+        // 右手举着吹泡泡工具靠近嘴边
         this.p5.line(
-          this.position.x, mouthY,
-          mouthX - 3, mouthY
+          this.position.x, this.position.y - this.height * 0.5,
+          handX, handY
+        )
+
+        // 左手放在腿上
+        this.p5.line(
+          this.position.x, this.position.y - this.height * 0.5,
+          this.position.x - 20, this.position.y - this.height * 0.3
+        )
+
+        // 移除原来的圆形手表示，用线条表示手指
+        this.p5.stroke(strokeColor)
+        // 绘制简单的手指（几条小线）
+        const fingerLength = 3
+        // 拇指
+        this.p5.line(
+          handX, handY,
+          handX - 2, handY - fingerLength
+        )
+        // 其他手指
+        this.p5.line(
+          handX, handY,
+          handX + fingerLength, handY - 2
+        )
+
+        // 绘制吹泡泡工具（长细管子）- 从嘴到手，并超出手一点
+        const toolColor = this.p5.lerpColor(
+          this.p5.color(180, 180, 220),
+          this.p5.color(50, 50, 20),
+          colorInversionProgress
+        )
+        this.p5.stroke(toolColor)
+        this.p5.strokeWeight(1.5)
+
+        // 管子超出手一点的末端
+        const toolEndX = handX + 5
+        const toolEndY = handY + 5
+
+        // 只保留一段管子，从嘴边到手边，并超出手一点
+        this.p5.line(
+          mouthX, mouthY,
+          toolEndX, toolEndY
+        )
+        this.bubble?.setPosition(toolEndX, toolEndY)
+
+        // 绘制嘴巴（随着吹泡泡动作变化）
+        this.p5.stroke(strokeColor)
+        this.p5.strokeWeight(2)
+        if (this.bubble) {
+          // 吹气状态的嘴巴 - 圆形
+          this.p5.ellipse(
+            mouthX - 4,
+            mouthY,
+            5, 4
+          )
+        } else {
+          // 普通状态的嘴巴
+          this.p5.line(
+            this.position.x, mouthY,
+            mouthX - 3, mouthY
+          )
+        }
+      } else {
+        // 漂浮状态，两只手臂向两侧
+        this.p5.line(
+          this.position.x, this.position.y - this.height * 0.5,
+          this.position.x + 25, this.position.y - this.height * 0.4
+        )
+        this.p5.line(
+          this.position.x, this.position.y - this.height * 0.5,
+          this.position.x - 25, this.position.y - this.height * 0.4
+        )
+
+        // 闭合的嘴巴
+        this.p5.line(
+          this.position.x, this.position.y - this.height * 0.65,
+          this.position.x + 5, this.position.y - this.height * 0.65
         )
       }
-    } else {
-      // 漂浮或下落状态，两只手臂向两侧
+
+      // 腿部（坐姿）
+      // 大腿
       this.p5.line(
-        this.position.x, this.position.y - this.height * 0.5,
-        this.position.x + 25, this.position.y - this.height * 0.4
+        this.position.x, this.position.y - this.height * 0.3,
+        this.position.x + 30, this.position.y
       )
       this.p5.line(
-        this.position.x, this.position.y - this.height * 0.5,
-        this.position.x - 25, this.position.y - this.height * 0.4
+        this.position.x, this.position.y - this.height * 0.3,
+        this.position.x - 30, this.position.y
       )
 
-      // 闭合的嘴巴
+      // 小腿
       this.p5.line(
-        this.position.x, this.position.y - this.height * 0.65,
-        this.position.x + 5, this.position.y - this.height * 0.65
+        this.position.x + 30, this.position.y,
+        this.position.x + 25, this.position.y + this.height * 0.3
+      )
+      this.p5.line(
+        this.position.x - 30, this.position.y,
+        this.position.x - 25, this.position.y + this.height * 0.3
       )
     }
-
-    // 腿部（坐姿）
-    // 大腿
-    this.p5.line(
-      this.position.x, this.position.y - this.height * 0.3,
-      this.position.x + 30, this.position.y
-    )
-    this.p5.line(
-      this.position.x, this.position.y - this.height * 0.3,
-      this.position.x - 30, this.position.y
-    )
-
-    // 小腿
-    this.p5.line(
-      this.position.x + 30, this.position.y,
-      this.position.x + 25, this.position.y + this.height * 0.3
-    )
-    this.p5.line(
-      this.position.x - 30, this.position.y,
-      this.position.x - 25, this.position.y + this.height * 0.3
-    )
 
     // 显示泡泡
     if (this.bubble) {
@@ -832,6 +916,9 @@ function updateBubbleCrackEffect(p5: P5CanvasInstance) {
           bubbleCrackEffect.phase = 'fall'
           bubbleCrackEffect.timeFreeze = false // 解除时间冻结
           bubbleCrackEffect.active = false
+
+          // 在泡泡完全消散后，才切换人物状态为坠落
+          person.startFalling()
         }
         break
     }
