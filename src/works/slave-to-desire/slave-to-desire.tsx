@@ -17,7 +17,7 @@ const BUBBLE_SPLIT_DURATION = 1.0 // 泡泡分裂持续时间（秒）
 const BUBBLE_FADE_DURATION = 0.6 // 泡泡消散持续时间（秒）
 const FLOAT_SWING_AMPLITUDE = 1.2 // 漂浮时左右晃动的幅度
 const MIN_FLOAT_TIME = 12000 // 最小漂浮时间（毫秒）
-const MAX_FLOAT_TIME = 24000 // 最大漂浮时间（毫秒）
+const MAX_FLOAT_TIME = 20000 // 最大漂浮时间（毫秒）
 const BUBBLE_REFRACTION = 0.2 // 泡泡折射率
 const BUBBLE_GRADIENT_STOPS = 8 // 泡泡彩色膜的渐变停止点数量
 
@@ -921,22 +921,22 @@ function drawSplittingBubbleHalves(p5: P5CanvasInstance, radius: number, progres
 // 绘制消散的泡泡碎片
 function drawFadingBubbleFragments(p5: P5CanvasInstance, centerX: number, centerY: number, radius: number, progress: number) {
   const opacity = 1 - progress
-  const dustParticlesPerHalf = 12 // 每半个泡泡生成的尘埃粒子数量
+  const dustParticlesPerHalf = 20 // 增加每半个泡泡生成的尘埃粒子数量
 
   p5.push()
 
   // 从左半泡泡位置生成尘埃
   for (let i = 0; i < dustParticlesPerHalf; i++) {
     const angle = p5.random(p5.TWO_PI)
-    const distance = progress * radius * p5.random(0.5, 1.2) // 随机扩散距离
+    const distance = progress * radius * p5.random(0.8, 2.0) // 扩大扩散距离范围
     const x = bubbleCrackEffect.leftHalf.x + Math.cos(angle) * distance
-    const y = bubbleCrackEffect.leftHalf.y + Math.sin(angle) * distance + progress * 30 // 轻微下落
-    const size = p5.random(1, 3) * (1 - progress) // 随机大小，逐渐缩小
+    const y = bubbleCrackEffect.leftHalf.y + Math.sin(angle) * distance + progress * 40 // 增加下落距离
+    const size = p5.random(1, 4) * (1 - progress) // 增加粒子大小范围
 
     // 尘埃颜色 - 更加细微和半透明
     const dustColor = p5.lerpColor(
-      p5.color(180, 200, 220, opacity * 180),
-      p5.color(60, 40, 30, opacity * 180),
+      p5.color(180, 200, 220, opacity * 160),
+      p5.color(60, 40, 30, opacity * 160),
       colorInversionProgress
     )
     p5.fill(dustColor)
@@ -947,15 +947,15 @@ function drawFadingBubbleFragments(p5: P5CanvasInstance, centerX: number, center
   // 从右半泡泡位置生成尘埃
   for (let i = 0; i < dustParticlesPerHalf; i++) {
     const angle = p5.random(p5.TWO_PI)
-    const distance = progress * radius * p5.random(0.5, 1.2) // 随机扩散距离
+    const distance = progress * radius * p5.random(0.8, 2.0) // 扩大扩散距离范围
     const x = bubbleCrackEffect.rightHalf.x + Math.cos(angle) * distance
-    const y = bubbleCrackEffect.rightHalf.y + Math.sin(angle) * distance + progress * 30 // 轻微下落
-    const size = p5.random(1, 3) * (1 - progress) // 随机大小，逐渐缩小
+    const y = bubbleCrackEffect.rightHalf.y + Math.sin(angle) * distance + progress * 40 // 增加下落距离
+    const size = p5.random(1, 4) * (1 - progress) // 增加粒子大小范围
 
     // 尘埃颜色 - 更加细微和半透明
     const dustColor = p5.lerpColor(
-      p5.color(180, 200, 220, opacity * 180),
-      p5.color(60, 40, 30, opacity * 180),
+      p5.color(180, 200, 220, opacity * 160),
+      p5.color(60, 40, 30, opacity * 160),
       colorInversionProgress
     )
     p5.fill(dustColor)
@@ -963,22 +963,63 @@ function drawFadingBubbleFragments(p5: P5CanvasInstance, centerX: number, center
     p5.circle(x, y, size)
   }
 
-  // 添加一些额外的微小粒子增强尘埃效果
-  const extraDustCount = 8
-  for (let i = 0; i < extraDustCount; i++) {
+  // 添加中等距离的尘埃粒子
+  const mediumDustCount = 16
+  for (let i = 0; i < mediumDustCount; i++) {
     // 在两半泡泡之间的区域生成一些额外尘埃
     const mixX = p5.lerp(bubbleCrackEffect.leftHalf.x, bubbleCrackEffect.rightHalf.x, p5.random())
     const mixY = p5.lerp(bubbleCrackEffect.leftHalf.y, bubbleCrackEffect.rightHalf.y, p5.random())
 
     const angle = p5.random(p5.TWO_PI)
-    const distance = progress * radius * p5.random(0.3, 0.8)
+    const distance = progress * radius * p5.random(0.5, 1.5) // 中等扩散距离
     const x = mixX + Math.cos(angle) * distance
-    const y = mixY + Math.sin(angle) * distance + progress * 20
-    const size = p5.random(0.5, 1.5) * (1 - progress)
+    const y = mixY + Math.sin(angle) * distance + progress * 30
+    const size = p5.random(0.8, 2.5) * (1 - progress)
 
     const dustColor = p5.lerpColor(
       p5.color(160, 180, 200, opacity * 120),
       p5.color(40, 30, 20, opacity * 120),
+      colorInversionProgress
+    )
+    p5.fill(dustColor)
+    p5.noStroke()
+    p5.circle(x, y, size)
+  }
+
+  // 添加远距离的稀疏尘埃粒子
+  const farDustCount = 12
+  for (let i = 0; i < farDustCount; i++) {
+    // 从原始破裂位置生成远距离尘埃
+    const angle = p5.random(p5.TWO_PI)
+    const distance = progress * radius * p5.random(1.5, 3.5) // 更远的扩散距离
+    const x = bubbleCrackEffect.x + Math.cos(angle) * distance
+    const y = bubbleCrackEffect.y + Math.sin(angle) * distance + progress * 50 // 更大的下落距离
+    const size = p5.random(0.5, 1.8) * (1 - progress) // 更小的粒子
+
+    // 远距离尘埃更加透明
+    const dustColor = p5.lerpColor(
+      p5.color(140, 160, 180, opacity * 80),
+      p5.color(30, 25, 15, opacity * 80),
+      colorInversionProgress
+    )
+    p5.fill(dustColor)
+    p5.noStroke()
+    p5.circle(x, y, size)
+  }
+
+  // 添加极远距离的微粒
+  const veryFarDustCount = 8
+  for (let i = 0; i < veryFarDustCount; i++) {
+    const angle = p5.random(p5.TWO_PI)
+    const distance = progress * radius * p5.random(2.0, 4.0) // 极远距离
+    const x = bubbleCrackEffect.x + Math.cos(angle) * distance
+    const y = bubbleCrackEffect.y + Math.sin(angle) * distance + progress * 60
+    const size = p5.random(0.3, 1.0) * (1 - progress) // 极小粒子
+
+    // 极远距离尘埃几乎透明
+    const dustColor = p5.lerpColor(
+      p5.color(120, 140, 160, opacity * 50),
+      p5.color(20, 18, 12, opacity * 50),
       colorInversionProgress
     )
     p5.fill(dustColor)
