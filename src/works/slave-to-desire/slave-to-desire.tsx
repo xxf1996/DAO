@@ -869,7 +869,7 @@ function drawBubbleCrack(p5: P5CanvasInstance, centerX: number, centerY: number,
   p5.noFill()
 
   // 裂痕颜色 - 深色，确保与背景有对比
-  const crackColor = p5.color(60, 60, 60, 120)
+  const crackColor = p5.color(180, 180, 180, 120)
   p5.stroke(crackColor)
   p5.strokeWeight(1)
 
