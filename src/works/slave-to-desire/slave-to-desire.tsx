@@ -61,6 +61,7 @@ class StickPerson {
   private lastStateChange: number = 0 // 上次状态变化的时间
   private floatDuration: number = 0 // 漂浮持续时间
   private floatStartTime: number = 0 // 开始漂浮的时间
+  private fallStartY: number = 0 // 开始坠落时的Y位置
 
   constructor(private p5: P5CanvasInstance, x: number, y: number) {
     this.position = p5.createVector(x, y)
@@ -78,15 +79,15 @@ class StickPerson {
   }
 
   update() {
-    // 如果时间冻结，不更新人物状态
+    this.animations.update(performance.now())
+
+    // 更新颜色反转进度（即使在时间冻结期间也要更新）
+    this.updateColorInversion()
+
+    // 如果时间冻结，不更新人物物理状态
     if (bubbleCrackEffect.timeFreeze) {
       return
     }
-
-    this.animations.update(performance.now())
-
-    // 更新颜色反转进度
-    this.updateColorInversion()
 
     // 根据状态处理不同的行为
     switch (this.state) {
@@ -180,19 +181,26 @@ class StickPerson {
     } else if (this.state === PersonState.FALLING) {
       // 当下落时，逐渐恢复颜色 - 使用渐变而不是突变
       // 计算坠落进度：从开始坠落到着地的进度
-      const fallStartY = this.position.y // 当前位置
       const groundY = this.p5.height / 2 - FLOOR_HEIGHT // 地面位置
-      const totalFallDistance = Math.abs(groundY - fallStartY) // 总坠落距离
+      const totalFallDistance = Math.abs(groundY - this.fallStartY) // 总坠落距离（从开始坠落点到地面）
+      const currentFallDistance = Math.abs(this.position.y - this.fallStartY) // 当前已坠落距离
 
-      // 如果坠落距离很小，直接使用时间进度
+      // 调试输出
+      if (this.p5.frameCount % 30 === 0) { // 每30帧输出一次
+        console.log(`坠落调试 - 当前Y: ${this.position.y.toFixed(1)}, 开始Y: ${this.fallStartY.toFixed(1)}, 地面Y: ${groundY.toFixed(1)}`)
+        console.log(`总距离: ${totalFallDistance.toFixed(1)}, 已坠落: ${currentFallDistance.toFixed(1)}, 进度: ${(currentFallDistance / totalFallDistance).toFixed(2)}`)
+        console.log(`颜色进度: ${colorInversionProgress.toFixed(2)}`)
+      }
+
+      // 如果总坠落距离很小，直接使用时间进度
       if (totalFallDistance < 50) {
         const fallDuration = 2.5 // 坠落时颜色恢复的持续时间（秒）
         colorInversionProgress = Math.max(1 - elapsedTime / fallDuration, 0)
       } else {
-        // 基于位置的渐变：越接近地面，背景越暗
-        const fallProgress = Math.min((groundY - this.position.y) / totalFallDistance, 1)
-        // 使用缓动函数让颜色变化更平滑
-        const easedProgress = 1 - Math.pow(1 - fallProgress, 1.5) // ease-out
+        // 基于位置的渐变：坠落进度越大，背景越暗
+        const fallProgress = Math.min(currentFallDistance / totalFallDistance, 1)
+        // 使用缓动函数让颜色变化更平滑 - 从亮色(1)渐变到暗色(0)
+        const easedProgress = 1 - Math.pow(1 - fallProgress, 2) // ease-out
         colorInversionProgress = Math.max(1 - easedProgress, 0)
       }
     } else if (this.state === PersonState.BLOWING) {
@@ -262,6 +270,7 @@ class StickPerson {
   startFalling() {
     this.state = PersonState.FALLING
     this.lastStateChange = this.p5.millis()
+    this.fallStartY = this.position.y // 记录坠落开始时的Y位置
     // 给予向下的初始速度
     this.velocity = this.p5.createVector(this.p5.random(-1, 1), 1)
   }
