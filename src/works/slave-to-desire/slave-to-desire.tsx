@@ -12,10 +12,10 @@ const BUBBLE_FLOAT_SPEED = 0.6
 const FLOOR_HEIGHT = 100 // 距离底部的地面高度
 const PERSON_HEIGHT = 80 // 将人物高度从60增加到100
 const COLOR_INVERSION_DURATION = 1.0 // 颜色反转的过渡时间（秒）
-const CRACK_APPEAR_DURATION = 8.0 // 裂痕出现持续时间（秒）
-const BUBBLE_SPLIT_DURATION = 1.0 // 泡泡分裂持续时间（秒）
-const BUBBLE_FADE_DURATION = 0.6 // 泡泡消散持续时间（秒）
-const FLOAT_SWING_AMPLITUDE = 1.2 // 漂浮时左右晃动的幅度
+const CRACK_APPEAR_DURATION = 5.0 // 裂痕出现持续时间（秒）
+const BUBBLE_SPLIT_DURATION = 0.3 // 泡泡分裂持续时间（秒）
+const BUBBLE_FADE_DURATION = 1.0 // 泡泡消散持续时间（秒）
+const FLOAT_SWING_AMPLITUDE = 1.5 // 漂浮时左右晃动的幅度
 const MIN_FLOAT_TIME = 12000 // 最小漂浮时间（毫秒）
 const MAX_FLOAT_TIME = 20000 // 最大漂浮时间（毫秒）
 const BUBBLE_REFRACTION = 0.2 // 泡泡折射率
@@ -539,7 +539,7 @@ class Bubble {
     // 初始化新增属性
     this.hueOffset = p5.random(360) // 随机颜色偏移
     this.membraneThickness = p5.random(1, 2) // 泡泡膜厚度
-    this.rotationSpeed = p5.random(0.002, 0.005) * (p5.random() > 0.5 ? 1 : -1) // 随机旋转速度和方向
+    this.rotationSpeed = p5.random(0.001, 0.003) * (p5.random() > 0.5 ? 1 : -1) // 随机旋转速度和方向
     // 噪声相关属性
     this.noiseOffset = p5.random(1000) // 为每个泡泡创建独特的噪声偏移
     this.noiseScale = p5.random(0.003, 0.008) // 噪声时间缩放，控制摆动频率
@@ -569,6 +569,18 @@ class Bubble {
     // 将噪声值从[0,1]映射到[-1,1]范围
     const swingOffset = (noiseValue - 0.5) * 2 * FLOAT_SWING_AMPLITUDE
     this.position.x += swingOffset
+
+    // 限制泡泡的水平位置不超出屏幕边界
+    const screenHalfWidth = this.p5.width / 2
+    const bubbleRadius = this.radius
+    // 考虑泡泡半径，确保整个泡泡都在屏幕内
+    const leftBoundary = -screenHalfWidth + bubbleRadius
+    const rightBoundary = screenHalfWidth - bubbleRadius
+
+    // 将泡泡位置限制在边界内
+    this.position.x = Math.max(leftBoundary, Math.min(rightBoundary, this.position.x))
+    // 更新旋转角度
+    this.rotationAngle += this.rotationSpeed
   }
 
   display() {
@@ -1047,7 +1059,7 @@ function drawBubbleCrack(p5: P5CanvasInstance, centerX: number, centerY: number,
   p5.noFill()
 
   // 裂痕颜色 - 深色，确保与背景有对比
-  const crackColor = p5.color(150, 150, 150, 120)
+  const crackColor = p5.color(255, 255, 255, 240)
   p5.stroke(crackColor)
   p5.strokeWeight(1)
 
