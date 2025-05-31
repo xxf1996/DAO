@@ -617,31 +617,105 @@ class Bubble {
     const p5 = this.p5
     const ctx = p5.drawingContext as CanvasRenderingContext2D
 
-    // 创建径向渐变
+    // 创建径向渐变 - 水彩风格
     const gradient = ctx.createRadialGradient(
-      x + radius * 0.3, y - radius * 0.3, 0, // 内圆心和半径
+      x - radius * 0.2, y - radius * 0.3, 0, // 内圆心稍微偏移，半径为0
       x, y, radius // 外圆心和半径
     )
 
-    // 添加多个渐变色停止点，创建彩虹膜效果
-    const baseHue = (this.hueOffset + p5.frameCount * 0.5) % 360
+    // 根据泡泡的色相偏移选择基础颜色
+    const baseHue = (this.hueOffset + p5.frameCount * 0.02) % 360
 
-    // 使用HSL色彩空间创建彩虹色彩效果 - 不考虑颜色反转
-    for (let i = 0; i < BUBBLE_GRADIENT_STOPS; i++) {
-      const stop = i / (BUBBLE_GRADIENT_STOPS - 1)
-      const hue = (baseHue + i * 30) % 360
+    // 定义关键颜色点（每60度一个关键点）
+    const keyColors = [
+      { h: 0, s: 60, l: 80 }, // 红色
+      { h: 60, s: 55, l: 82 }, // 黄色
+      { h: 120, s: 50, l: 78 }, // 绿色
+      { h: 180, s: 45, l: 80 }, // 青色
+      { h: 240, s: 55, l: 75 }, // 蓝色
+      { h: 300, s: 60, l: 77 }, // 紫色
+      { h: 360, s: 60, l: 80 } // 红色（循环）
+    ]
 
-      // 统一使用明亮的彩色方案，不考虑颜色反转
-      const brightness = 70 - i * 4
-      // 增加透明度，从原来的0.7降到0.4，使泡泡膜更通透
-      gradient.addColorStop(stop, `hsla(${hue}, 70%, ${brightness}%, ${0.4 - stop * 0.2})`)
+    // 找到当前baseHue所在的区间并进行插值
+    const colorIndex = Math.floor(baseHue / 60)
+    const nextColorIndex = (colorIndex + 1) % 6
+    const t = (baseHue % 60) / 60 // 插值因子 0-1
+
+    // 在两个关键颜色之间插值
+    const currentColor = keyColors[colorIndex]
+    const nextColor = keyColors[nextColorIndex]
+
+    // 线性插值函数
+    const lerp = (start: number, end: number, t: number) => start + (end - start) * t
+
+    // 插值得到基础颜色
+    const interpolatedColor = {
+      h: lerp(currentColor.h, nextColor.h, t),
+      s: lerp(currentColor.s, nextColor.s, t),
+      l: lerp(currentColor.l, nextColor.l, t)
     }
+
+    // 基于插值后的颜色生成4个渐变层次
+    const watercolorColors = [
+      {
+        h: interpolatedColor.h,
+        s: Math.max(interpolatedColor.s - 15, 20),
+        l: Math.min(interpolatedColor.l + 10, 90)
+      }, // 最浅
+      {
+        h: interpolatedColor.h,
+        s: interpolatedColor.s,
+        l: interpolatedColor.l
+      }, // 基础色
+      {
+        h: interpolatedColor.h,
+        s: Math.min(interpolatedColor.s + 10, 80),
+        l: Math.max(interpolatedColor.l - 10, 50)
+      }, // 较深
+      {
+        h: interpolatedColor.h,
+        s: Math.min(interpolatedColor.s + 20, 85),
+        l: Math.max(interpolatedColor.l - 20, 40)
+      } // 最深
+    ]
+
+    // 创建水彩风格的渐变停止点
+    // 中心 - 最亮最透明
+    gradient.addColorStop(0, `hsla(${watercolorColors[0].h}, ${watercolorColors[0].s}%, ${watercolorColors[0].l}%, 0.15)`)
+
+    // 内圈 - 主色调
+    gradient.addColorStop(0.3, `hsla(${watercolorColors[1].h}, ${watercolorColors[1].s}%, ${watercolorColors[1].l}%, 0.25)`)
+
+    // 中圈 - 加深
+    gradient.addColorStop(0.6, `hsla(${watercolorColors[2].h}, ${watercolorColors[2].s}%, ${watercolorColors[2].l}%, 0.35)`)
+
+    // 外圈 - 最深
+    gradient.addColorStop(0.85, `hsla(${watercolorColors[3].h}, ${watercolorColors[3].s}%, ${watercolorColors[3].l}%, 0.45)`)
+
+    // 边缘 - 柔和边界
+    gradient.addColorStop(1, `hsla(${watercolorColors[3].h}, ${watercolorColors[3].s + 10}%, ${watercolorColors[3].l - 10}%, 0.25)`)
 
     // 应用渐变
     ctx.fillStyle = gradient
 
     // 绘制填充圆形
     p5.noStroke()
+    ctx.beginPath()
+    ctx.arc(x, y, radius, 0, Math.PI * 2)
+    ctx.fill()
+
+    // 添加内层柔光效果
+    const innerGradient = ctx.createRadialGradient(
+      x - radius * 0.3, y - radius * 0.4, 0,
+      x - radius * 0.1, y - radius * 0.2, radius * 0.6
+    )
+
+    innerGradient.addColorStop(0, `hsla(${watercolorColors[0].h + 10}, ${watercolorColors[0].s - 10}%, ${Math.min(watercolorColors[0].l + 5, 95)}%, 0.2)`)
+    innerGradient.addColorStop(0.7, `hsla(${watercolorColors[0].h + 10}, ${watercolorColors[0].s - 10}%, ${watercolorColors[0].l}%, 0.05)`)
+    innerGradient.addColorStop(1, 'hsla(0, 0%, 100%, 0)')
+
+    ctx.fillStyle = innerGradient
     ctx.beginPath()
     ctx.arc(x, y, radius, 0, Math.PI * 2)
     ctx.fill()
