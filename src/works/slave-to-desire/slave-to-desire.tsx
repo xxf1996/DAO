@@ -4,12 +4,12 @@ import { Tween, Easing, Group } from '@tweenjs/tween.js'
 import type { Color, Vector } from 'p5'
 
 // 物理常量
-const GRAVITY = 0.1 // 降低重力，让下落更慢
+const GRAVITY = 0.4 // 降低重力，让下落更慢
 const AIR_RESISTANCE = 0.98
 const BUBBLE_MIN_GROW_SPEED = 0.5
 const BUBBLE_MAX_GROW_SPEED = 1.5
 const BUBBLE_FLOAT_SPEED = 0.6
-const FLOOR_HEIGHT = 100 // 距离底部的地面高度
+const FLOOR_HEIGHT = 50 // 距离底部的地面高度
 const PERSON_HEIGHT = 80 // 将人物高度从60增加到100
 const COLOR_INVERSION_DURATION = 1.0 // 颜色反转的过渡时间（秒）
 const CRACK_APPEAR_DURATION = 5.0 // 裂痕出现持续时间（秒）
@@ -67,6 +67,7 @@ class StickPerson {
   private floatDuration: number = 0 // 漂浮持续时间
   private floatStartTime: number = 0 // 开始漂浮的时间
   private fallStartY: number = 0 // 开始坠落时的Y位置
+  private speedLines: Array<{ offsetX: number, offsetY: number, length: number, endOffsetX: number, isShort: boolean }> = [] // 预生成的速度线条数据
 
   constructor(private p5: P5CanvasInstance, x: number, y: number) {
     this.position = p5.createVector(x, y)
@@ -278,6 +279,70 @@ class StickPerson {
     this.fallStartY = this.position.y // 记录坠落开始时的Y位置
     // 给予向下的初始速度
     this.velocity = this.p5.createVector(this.p5.random(-1, 1), 1)
+
+    // 预生成速度线条数据
+    this.generateSpeedLines()
+  }
+
+  // 生成速度线条数据 - 重新设计为平行竖直线条
+  private generateSpeedLines() {
+    this.speedLines = []
+
+    // 人物的边界
+    const personLeft = -30 // 人物左边界（相对于中心）
+    const personRight = 40 // 人物右边界（相对于中心）
+    const personTop = -this.height * 0.8 // 人物顶部
+    const personBottom = this.height * 0.3 // 人物底部
+
+    // 在人物上方和两侧生成平行的竖直线条
+    const leftAreaLines = 12 // 增加左侧区域线条数
+    const rightAreaLines = 12 // 增加右侧区域线条数
+    const topAreaLines = 16 // 增加上方区域线条数
+
+    // 左侧区域线条 - 更密集的排列
+    for (let i = 0; i < leftAreaLines; i++) {
+      const offsetX = -50 - i * 6 // 缩小间距，让线条更密集
+      const offsetY = this.p5.random(personTop - 30, personBottom) // Y位置覆盖人物高度范围
+      const length = this.p5.random(25, 50) // 稍微缩短长度
+
+      this.speedLines.push({
+        offsetX,
+        offsetY,
+        length,
+        endOffsetX: 0, // 竖直线条，无水平偏移
+        isShort: i % 5 === 0 // 调整短线条比例
+      })
+    }
+
+    // 右侧区域线条 - 更密集的排列
+    for (let i = 0; i < rightAreaLines; i++) {
+      const offsetX = 50 + i * 6 // 缩小间距，让线条更密集
+      const offsetY = this.p5.random(personTop - 30, personBottom) // Y位置覆盖人物高度范围
+      const length = this.p5.random(25, 50) // 稍微缩短长度
+
+      this.speedLines.push({
+        offsetX,
+        offsetY,
+        length,
+        endOffsetX: 0, // 竖直线条，无水平偏移
+        isShort: i % 5 === 0 // 调整短线条比例
+      })
+    }
+
+    // 上方区域线条 - 更密集的排列
+    for (let i = 0; i < topAreaLines; i++) {
+      const offsetX = this.p5.random(personLeft - 60, personRight + 60) // 扩大上方覆盖范围
+      const offsetY = personTop - 15 - this.p5.random(0, 45) // 在人物上方，稍微降低起始位置
+      const length = this.p5.random(35, 70) // 适中的长度
+
+      this.speedLines.push({
+        offsetX,
+        offsetY,
+        length,
+        endOffsetX: 0, // 竖直线条，无水平偏移
+        isShort: i % 4 === 0 // 调整短线条比例
+      })
+    }
   }
 
   // 生成裂痕路径点
@@ -375,16 +440,60 @@ class StickPerson {
         this.position.x - 20, this.position.y - this.height * 0.55,
         6, 8
       )
+
+      // 6. 绘制速度线条效果
+      const speedMagnitude = Math.abs(this.velocity.y) // 获取下落速度大小
+      const speedFactor = Math.min(speedMagnitude / 3, 1) // 速度因子，用于控制显示的线条数量和长度
+      const displayLineCount = Math.floor(this.speedLines.length * speedFactor) // 根据速度显示的线条数量
+
+      if (displayLineCount > 0) {
+        this.p5.push()
+        // 速度线条颜色，比人物颜色更淡
+        const speedLineColor = this.p5.lerpColor(
+          this.p5.color(255, 180), // 原始颜色：半透明白色
+          this.p5.color(20, 180), // 反转后颜色：半透明深色
+          colorInversionProgress
+        )
+        this.p5.stroke(speedLineColor)
+
+        // 绘制预生成的竖直速度线
+        for (let i = 0; i < displayLineCount; i++) {
+          const line = this.speedLines[i]
+
+          // 根据速度调整线条长度
+          const adjustedLength = line.length * speedFactor
+
+          // 线条起点
+          const startX = this.position.x + line.offsetX
+          const startY = this.position.y + line.offsetY
+
+          // 线条终点（严格竖直向上，与下落方向相反）
+          const endX = startX // 竖直线条，X坐标不变
+          const endY = startY - adjustedLength // 向上延伸
+
+          if (line.isShort) {
+            // 短辅助线条
+            this.p5.strokeWeight(0.5)
+            const shortLength = adjustedLength * 0.4
+            this.p5.line(startX, startY, endX, startY - shortLength)
+          } else {
+            // 主要速度线条
+            this.p5.strokeWeight(1)
+            this.p5.line(startX, startY, endX, endY)
+          }
+        }
+        this.p5.pop()
+      }
     } else {
       // 非坠落状态的正常绘制逻辑
 
       // 绘制人物（坐姿）
       // 头部
-      this.p5.circle(this.position.x, this.position.y - this.height * 0.7, 30) // 头部尺寸更大
+      this.p5.circle(this.position.x, this.position.y - this.height * 0.7, this.height * 0.32) // 头部尺寸更大
 
       // 身体
       this.p5.line(
-        this.position.x, this.position.y - this.height * 0.6,
+        this.position.x, this.position.y - this.height * 0.52,
         this.position.x, this.position.y - this.height * 0.3
       )
 
@@ -488,21 +597,21 @@ class StickPerson {
       // 大腿
       this.p5.line(
         this.position.x, this.position.y - this.height * 0.3,
-        this.position.x + 30, this.position.y
+        this.position.x + 25, this.position.y
       )
       this.p5.line(
         this.position.x, this.position.y - this.height * 0.3,
-        this.position.x - 30, this.position.y
+        this.position.x - 25, this.position.y
       )
 
       // 小腿
       this.p5.line(
-        this.position.x + 30, this.position.y,
-        this.position.x + 25, this.position.y + this.height * 0.3
+        this.position.x + 25, this.position.y,
+        this.position.x + 20, this.position.y + this.height * 0.25
       )
       this.p5.line(
-        this.position.x - 30, this.position.y,
-        this.position.x - 25, this.position.y + this.height * 0.3
+        this.position.x - 25, this.position.y,
+        this.position.x - 20, this.position.y + this.height * 0.25
       )
     }
 
