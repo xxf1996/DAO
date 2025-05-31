@@ -12,7 +12,7 @@ const BUBBLE_FLOAT_SPEED = 0.6
 const FLOOR_HEIGHT = 100 // 距离底部的地面高度
 const PERSON_HEIGHT = 80 // 将人物高度从60增加到100
 const COLOR_INVERSION_DURATION = 1.0 // 颜色反转的过渡时间（秒）
-const CRACK_APPEAR_DURATION = 10.0 // 裂痕出现持续时间（秒）
+const CRACK_APPEAR_DURATION = 8.0 // 裂痕出现持续时间（秒）
 const BUBBLE_SPLIT_DURATION = 1.0 // 泡泡分裂持续时间（秒）
 const BUBBLE_FADE_DURATION = 0.6 // 泡泡消散持续时间（秒）
 const FLOAT_SWING_AMPLITUDE = 1.2 // 漂浮时左右晃动的幅度
@@ -632,9 +632,9 @@ class Bubble {
       const hue = (baseHue + i * 30) % 360
 
       // 统一使用明亮的彩色方案，不考虑颜色反转
-      const brightness = 80 - i * 5
+      const brightness = 70 - i * 4
       // 增加透明度，从原来的0.7降到0.4，使泡泡膜更通透
-      gradient.addColorStop(stop, `hsla(${hue}, 80%, ${brightness}%, ${0.4 - stop * 0.2})`)
+      gradient.addColorStop(stop, `hsla(${hue}, 70%, ${brightness}%, ${0.4 - stop * 0.2})`)
     }
 
     // 应用渐变
@@ -973,7 +973,7 @@ function drawBubbleCrack(p5: P5CanvasInstance, centerX: number, centerY: number,
   p5.noFill()
 
   // 裂痕颜色 - 深色，确保与背景有对比
-  const crackColor = p5.color(180, 180, 180, 120)
+  const crackColor = p5.color(150, 150, 150, 120)
   p5.stroke(crackColor)
   p5.strokeWeight(1)
 
