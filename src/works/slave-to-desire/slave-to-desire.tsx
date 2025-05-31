@@ -548,8 +548,8 @@ class StickPerson {
         this.p5.strokeWeight(1.5)
 
         // 管子超出手一点的末端
-        const toolEndX = handX + 5
-        const toolEndY = handY + 5
+        const toolEndX = handX + 3
+        const toolEndY = handY + 3
 
         // 只保留一段管子，从嘴边到手边，并超出手一点
         this.p5.line(
@@ -586,10 +586,26 @@ class StickPerson {
           this.position.x - 25, this.position.y - this.height * 0.4
         )
 
-        // 闭合的嘴巴
-        this.p5.line(
-          this.position.x, this.position.y - this.height * 0.65,
-          this.position.x + 5, this.position.y - this.height * 0.65
+        this.p5.strokeWeight(1.5)
+        // 闭合的嘴巴 - 倒置麦当劳Logo形状（猫嘴，两个下半圆弧）
+        const mouthCenterX = this.position.x + 1
+        const mouthY = this.position.y - this.height * 0.65 + 2
+        const arcRadius = 2.5
+
+        // 左半圆弧
+        this.p5.arc(
+          mouthCenterX - arcRadius, mouthY,
+          arcRadius * 2, arcRadius * 2,
+          0, this.p5.PI * 1.25,
+          this.p5.OPEN
+        )
+
+        // 右半圆弧
+        this.p5.arc(
+          mouthCenterX + arcRadius, mouthY,
+          arcRadius * 2, arcRadius * 2,
+          -this.p5.PI * 0.25, this.p5.PI,
+          this.p5.OPEN
         )
       }
 
