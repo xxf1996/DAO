@@ -10,12 +10,12 @@ const work: SourceCodeWorkInfo = {
     zh: '欲望的奴隶'
   },
   desc: {
-    en: 'A simple figure blowing bubbles, gradually the bubble grows until it encapsulates the figure and floats into the air. After a random interval, the bubble bursts and the figure falls back to the ground to begin the cycle again. This represents how we are often swept away by our desires, only to have them burst and leave us back where we started.',
-    zh: '一个简约的线条人物吹泡泡，泡泡逐渐变大直至将人物包裹起来然后飘到空中。经过一段随机的时间后，泡泡破裂，人物掉回地面，然后又开始吹泡泡，如此循环。这象征着人们如何被自己的欲望所困，被其席卷上天，却又在欲望的破灭后跌回原点，周而复始。'
+    en: 'Desire is endless and very dreamy, like beautiful bubbles, blown out by us to encapsulate ourselves, entering beautiful dreams one by one, and then bursting. \n\nP.s: It\'s so good to be an art director!',
+    zh: '欲望是无穷无尽的，也是很梦幻的，就像是美丽的泡泡，被我们不停地吹出来把自己包裹住，进入一个个美丽的梦境，然后破灭。明知是梦一场，却还是乐此不疲，最终成为了欲望的奴隶。\n\nP.s: 当甲方的日子真好啊😀'
   },
   tags: [],
   links: [P5_LINK],
-  publicDate: '2025-05-12',
+  publicDate: '2025-05-31',
   component: lazy(() => import('./slave-to-desire')),
 }
 
