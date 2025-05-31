@@ -29,7 +29,8 @@ const work: ResourceWorkInfo = {
       },
       url: 'https://codepen.io/xxf1996/pen/mdJmdoV'
     }
-  ]
+  ],
+  defaultCollapsed: true
 }
 
 export default work

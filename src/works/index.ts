@@ -32,7 +32,8 @@ export const works: WorkInfo[] = [
         },
         url: 'https://www.shadertoy.com/view/XsXSWS'
       }
-    ]
+    ],
+    source: false
   },
   directionOfTheWind,
   walking,

@@ -20,13 +20,16 @@ const publish: MultiLang = {
 
 /** 作品信息展示 */
 function WorkInfoDisplay({ work }: WorkInfoDisplayProps) {
-  const [collapsed, setCollapsed] = useState(false) // 是否折叠
-  const [minimized, setMinimized] = useState(false) // 是否最小化显示
+  const [collapsed, setCollapsed] = useState(work.defaultCollapsed ?? false) // 是否折叠
+  const [minimized, setMinimized] = useState(work.defaultMinimized ?? false) // 是否最小化显示
   const toggleCollapsed = () => {
     setCollapsed(!collapsed)
   }
   const goHome = () => {
     window.location.href = '/'
+  }
+  const goToSource = () => {
+    window.open(`https://github.com/xxf1996/DAO/tree/main/src/works/${work.alias}`, '_blank')
   }
 
   return (
@@ -36,6 +39,7 @@ function WorkInfoDisplay({ work }: WorkInfoDisplayProps) {
         {collapsed ? <div className="i-carbon-chevron-right work__info-icon" onClick={toggleCollapsed} /> : <div className="i-carbon-chevron-down work__info-icon" onClick={toggleCollapsed} />}
         <span className="work__info-title">{useMultiLangText(work.name)}</span>
         <div className="work__info-icon i-carbon-home" onClick={goHome} />
+        {(work.source !== false) && <div className="work__info-icon i-carbon-code" onClick={goToSource} title="查看源码" />}
         <div className="work__info-icon i-carbon-close" onClick={() => setMinimized(true)} />
       </div>
       <p className="work__info-date">

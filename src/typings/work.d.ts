@@ -26,8 +26,12 @@ interface WorkBaseInfo {
   tags: string[]
   /** 作品要显示的外链 */
   links: LinkInfo[]
-  /** 源码地址 */
-  sourceUrl?: string
+  /** 是否显示源码跳转，默认为true */
+  source?: boolean
+  /** 默认是否最小化，默认为false */
+  defaultMinimized?: boolean
+  /** 默认是否折叠，默认为false */
+  defaultCollapsed?: boolean
 }
 
 /** 直接整体引用到iframe的作品 */
