@@ -38,6 +38,11 @@ let bubbleCrackEffect = {
   originalBubble: null as Bubble | null // 保存原始泡泡用于渲染
 } // 泡泡破裂效果状态
 
+// 鼠标交互状态
+let isMouseOverBubble = false // 鼠标是否悬停在泡泡上
+let lastClickTime = 0 // 上次点击时间
+const DOUBLE_CLICK_DELAY = 300 // 双击间隔时间（毫秒）
+
 // 人物状态枚举
 enum PersonState {
   BLOWING, // 吹泡泡中
@@ -508,6 +513,16 @@ class StickPerson {
 
     this.p5.pop()
   }
+
+  // 获取当前状态
+  get currentState(): PersonState {
+    return this.state
+  }
+
+  // 获取当前泡泡
+  get currentBubble(): Bubble | null {
+    return this.bubble
+  }
 }
 
 // 泡泡类
@@ -526,6 +541,7 @@ class Bubble {
   private rotationSpeed: number // 旋转速度
   private noiseOffset: number // 噪声偏移值，用于一维噪声
   private noiseScale: number // 噪声缩放比例
+  private isHovered: boolean = false // 鼠标是否悬停在泡泡上
 
   constructor(private p5: P5CanvasInstance, x: number, y: number, radius: number, growSpeed: number) {
     this.position = p5.createVector(x, y)
@@ -777,6 +793,26 @@ class Bubble {
     p5.pop()
   }
 
+  // 检测鼠标是否在泡泡范围内
+  isMouseOver(mouseX: number, mouseY: number): boolean {
+    // 将屏幕坐标转换为以屏幕中心为原点的坐标系
+    const relativeMouseX = mouseX - this.p5.width / 2
+    const relativeMouseY = mouseY - this.p5.height / 2
+
+    const distance = this.p5.dist(relativeMouseX, relativeMouseY, this.position.x, this.position.y)
+    return distance <= this.radius
+  }
+
+  // 更新鼠标悬停状态
+  updateHoverState(mouseX: number, mouseY: number): boolean {
+    this.isHovered = this.isMouseOver(mouseX, mouseY)
+    return this.isHovered
+  }
+
+  get isGrowing() {
+    return this.growProgress < 1
+  }
+
   getRadius() {
     return this.radius
   }
@@ -788,10 +824,6 @@ class Bubble {
   setPosition(x: number, y: number) {
     this.position.x = x
     this.position.y = y
-  }
-
-  get isGrowing() {
-    return this.growProgress < 1
   }
 }
 
@@ -904,6 +936,9 @@ function setup(p5: P5CanvasInstance) {
 
   // 创建涟漪管理器
   rippleManager = new RippleManager(p5)
+
+  // 注册鼠标事件
+  p5.mousePressed = () => mousePressed(p5)
 }
 
 function draw(p5: P5CanvasInstance) {
@@ -929,6 +964,12 @@ function draw(p5: P5CanvasInstance) {
   // 移动原点到屏幕中心
   p5.translate(p5.width / 2, p5.height / 2)
 
+  // 检查鼠标是否悬停在泡泡上（仅在漂浮状态）
+  isMouseOverBubble = false
+  if (person.currentState === PersonState.FLOATING && person.currentBubble && !bubbleCrackEffect.active) {
+    isMouseOverBubble = person.currentBubble.updateHoverState(p5.mouseX, p5.mouseY)
+  }
+
   // 判断是否有泡泡破裂效果
   if (bubbleCrackEffect.active) {
     // 更新泡泡破裂效果
@@ -949,6 +990,29 @@ function draw(p5: P5CanvasInstance) {
   }
 
   p5.pop() // 恢复变换状态
+
+  // 设置鼠标光标样式
+  if (isMouseOverBubble) {
+    document.body.style.cursor = 'pointer'
+  } else {
+    document.body.style.cursor = 'default'
+  }
+}
+
+// 鼠标双击事件处理
+function mousePressed(p5: P5CanvasInstance) {
+  const currentTime = p5.millis()
+  const timeSinceLastClick = currentTime - lastClickTime
+
+  // 检查是否为双击
+  if (timeSinceLastClick < DOUBLE_CLICK_DELAY) {
+    // 双击事件：如果鼠标在泡泡上且泡泡在漂浮状态，则触发破碎
+    if (isMouseOverBubble && person.currentState === PersonState.FLOATING && person.currentBubble && !bubbleCrackEffect.active) {
+      person.popBubble()
+    }
+  }
+
+  lastClickTime = currentTime
 }
 
 // 绘制正常内容的函数
