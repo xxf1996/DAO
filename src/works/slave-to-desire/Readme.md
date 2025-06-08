@@ -1,42 +1,83 @@
-# 欲望的奴隶 (Slave to Desire)
+![image.png](http://pic.xiexuefeng.cc/markdown/202506081239489.png?imageView2/2/w/400)
 
-## 作品描述
+- 作品地址：https://dao.xiexuefeng.cc/slave-to-desire
+- 作品源码：https://github.com/xxf1996/DAO/tree/main/src/works/slave-to-desire
 
-这个作品展示了一个简约线条的人物吹泡泡的场景。泡泡逐渐变大，直至将人物完全包裹起来，然后带着人物一起飘到空中。经过一段随机的时间后，泡泡破裂，人物掉回地面，然后又开始吹泡泡，如此循环。
+# 关于作品
 
-## 灵感来源
+欲望的奴隶，其实指的就是我自己🙈。
 
-这个作品的灵感来源于我们日常生活中面对欲望时的状态。我们常常被各种欲望所驱使，就像被泡泡包裹着飘向高空。这些欲望可能是物质的、精神的，或是情感上的追求。
+某天路上脑海里想起一个画面：一个人在不停地吹泡泡，这些泡泡慢慢变大，大到可以把 ta 包围住，然后一起漂浮至空中直到破裂，如此往复。
 
-当我们追逐欲望时，往往会暂时忘记脚下的地面，飘飘然地沉浸在其中。然而，就像泡泡终将破裂一样，欲望带来的满足感也是短暂的。当泡泡破裂，我们又回到了原点，但很快又会开始吹起下一个泡泡，继续这个循环。
+所以，这个泡泡就是一个美丽的囚牢，而我们却又乐此不疲地吹出这个囚牢把自己一次次禁锢在里面，心甘情愿地成为它们的奴隶。
 
-这个作品正是想表达我们与欲望之间这种循环往复的关系 —— 我们既是欲望的创造者，也是欲望的奴隶。
+说到底，这个作品也只是其中的一个泡泡，现在它破了，但我大概还是会接着吹出更多的泡泡吧……
 
-## 技术实现
+# 制作过程
 
-这个作品使用React和P5.js实现，主要包含以下几个核心组件：
+我现在已经习惯当甲方了，动动嘴皮子就行，AI Agent 是我值得信赖的合作伙伴，所以下面看看聊天记录就行🙃，代码没啥好说的，AI 写得挺不错的，不过这次功能稍微复杂一点，导致代码写得有点长（上千行），而且其实用了很多动画制作的逻辑，应该用一个专门制作 2d 动画的渲染引擎框架可能会更高效一点。
 
-1. **StickPerson类**：简约线条人物，具有三种状态：吹泡泡、被泡泡包裹漂浮、泡泡破裂后下落。
+![局部截取_20250512_172137.png](http://pic.xiexuefeng.cc/markdown/202505121721130.png?imageslim)
 
-2. **Bubble类**：实现泡泡的生成、增长、漂浮和破裂效果。
+## 坠落
 
-3. **Ripple类**：实现泡泡破裂时的涟漪效果。
+我在网上找了一些用简约线条描绘人下坠的姿态图片，让 AI 进行参考复刻：
 
-4. **RippleManager类**：管理多个涟漪效果的创建和生命周期。
+![image.png](http://pic.xiexuefeng.cc/markdown/202505301644219.png?imageView2/2/w/400)
 
-物理模拟方面：
-- 实现了基本的重力和空气阻力效果
-- 泡泡的增长速度和漂浮时间是随机的
-- 当泡泡破裂时，会创建动态的涟漪效果
+![image.png](http://pic.xiexuefeng.cc/markdown/202505301659410.png?imageView2/2/w/300)
 
-视觉呈现上采用了深色背景与明亮的线条对比，增强了视觉冲击力。泡泡使用半透明的蓝色调，并添加了简单的高光效果增强立体感。
+![局部截取_20250530_172404.png](http://pic.xiexuefeng.cc/markdown/202505301724080.png?imageslim)
 
-## 作品寓意
+![局部截取_20250530_172441.png](http://pic.xiexuefeng.cc/markdown/202505301724594.png?imageslim)
 
-"欲望的奴隶"不仅反映了人类与欲望的关系，也隐喻了我们生活中的许多方面：
+不过 AI 好像很难直接从这种抽象的图片中识别出准确的姿态信息，哪怕是结合一定的文字描述它仍然无法绘制出我想要的那种坠落姿态：
 
-- **短暂的满足感**：就像泡泡一样，欲望带来的满足感是短暂的
-- **循环往复**：满足一个欲望后，我们很快又会追逐下一个
-- **失重与坠落**：欲望常让我们失去方向感，而当欲望破灭时，我们又回到现实
+![局部截取_20250530_171152.png](http://pic.xiexuefeng.cc/markdown/202505301712763.png?imageslim)
 
-这个作品并不是否定欲望本身，而是希望观众能思考我们与欲望之间的关系，以及如何在追求欲望的同时保持自我意识和控制力。 
+所以就得到了上面的效果，貌似符合 V 型姿态的需求，但实际上完全没有把身体转过来😂，不过好在经过我的提示，AI 终于知道姿态调整的顺序错了：
+
+![局部截取_20250530_172548.png](http://pic.xiexuefeng.cc/markdown/202505301726495.png?imageslim)
+
+![局部截取_20250530_172729.png](http://pic.xiexuefeng.cc/markdown/202505301727383.png?imageslim)
+
+## 速度线
+
+为了让坠落的过程更符合直觉，有一种下坠的速度感，我让 AI 参考漫画中常用的速度线技巧在坠落时增加一组速度线：
+
+![image.png](http://pic.xiexuefeng.cc/markdown/202505311602327.png?imageslim)
+
+![image.png](http://pic.xiexuefeng.cc/markdown/202505311637347.png?imageView2/2/w/400)
+
+![image.png](http://pic.xiexuefeng.cc/markdown/202505311743811.png?imageView2/2/w/400)
+
+## 水彩泡泡
+
+![image.png](http://pic.xiexuefeng.cc/markdown/202505311223077.png?imageView2/2/w/400)
+
+![image.png](http://pic.xiexuefeng.cc/markdown/202505311241764.png?imageView2/2/w/400)
+
+![image.png](http://pic.xiexuefeng.cc/markdown/202505311241488.png?imageView2/2/w/400)
+
+![image.png](http://pic.xiexuefeng.cc/markdown/202505311237361.png?imageView2/2/w/400)
+
+在让 AI 还原了水彩风格的渐变色泡泡后，我还想让 AI 还原水彩的纸张纹理，然而效果不佳，不过仔细想想，这种纹理至少要用着色器或者直接贴一张图片纹理更合适一点，对于 AI 来说有点为难了😂。
+![image.png](http://pic.xiexuefeng.cc/markdown/202505311521459.png?imageView2/2/w/400)
+
+![image.png](http://pic.xiexuefeng.cc/markdown/202505311521471.png?imageView2/2/w/400)
+
+从 AI 的实现来说，它的纹理实现思路就是几个圆形渐变色块的叠加，看起来很粗糙，也有点脏。
+
+## 猫嘴
+
+总觉得在漂浮过程中，要是没点表情就略显枯燥，所以加上了一个猫嘴的表情——略带滑稽又有一点惬意。此处放上泉此方的表情包（能懂这个的都是老二次元了🙈）：
+
+![image.png](http://pic.xiexuefeng.cc/markdown/202505311700511.png?imageslim)
+
+![image.png](http://pic.xiexuefeng.cc/markdown/202505311747912.png?imageView2/2/w/400)
+
+![image.png](http://pic.xiexuefeng.cc/markdown/202505311741557.png?imageView2/2/w/400)
+
+# 后话
+
+其实还有更多的与 AI 沟通的细节之处可以讲一讲的，当甲方也不是那么容易的😂。但是全是聊天记录太冗长了，而且也懒得整理了🙃
