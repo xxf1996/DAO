@@ -1,6 +1,6 @@
 import { useP5 } from '@/hooks/p5'
 import { ReactP5Wrapper, type P5CanvasInstance } from '@p5-wrapper/react'
-import { Tween, Easing, Group } from '@tweenjs/tween.js'
+import { Easing, Group } from '@tweenjs/tween.js'
 import type { Color, Vector } from 'p5'
 
 // 物理常量
@@ -18,8 +18,7 @@ const BUBBLE_FADE_DURATION = 1.0 // 泡泡消散持续时间（秒）
 const FLOAT_SWING_AMPLITUDE = 1.5 // 漂浮时左右晃动的幅度
 const MIN_FLOAT_TIME = 12000 // 最小漂浮时间（毫秒）
 const MAX_FLOAT_TIME = 20000 // 最大漂浮时间（毫秒）
-const BUBBLE_REFRACTION = 0.2 // 泡泡折射率
-const BUBBLE_GRADIENT_STOPS = 8 // 泡泡彩色膜的渐变停止点数量
+const CRACK_PATH_POINTS_COUNT = 28 // 裂痕路径点数量
 
 // 全局状态
 let colorInversionProgress = 0 // 颜色反转的进度 (0-1)
@@ -350,7 +349,7 @@ class StickPerson {
     const points = []
     const startY = centerY - radius
     const endY = centerY + radius
-    const steps = 20 // 裂痕路径点数量
+    const steps = CRACK_PATH_POINTS_COUNT // 裂痕路径点数量
 
     for (let i = 0; i <= steps; i++) {
       const progress = i / steps
@@ -1163,9 +1162,10 @@ function updateBubbleCrackEffect(p5: P5CanvasInstance) {
 
     switch (bubbleCrackEffect.phase) {
       case 'crack':
-        // 裂痕出现阶段
-        bubbleCrackEffect.progress = Math.min(elapsedTime / CRACK_APPEAR_DURATION, 1)
-        if (bubbleCrackEffect.progress >= 1) {
+        // 裂痕出现阶段 - 使用ease-in缓动函数
+        const linearProgress = Math.min(elapsedTime / CRACK_APPEAR_DURATION, 1)
+        bubbleCrackEffect.progress = Easing.Cubic.In(linearProgress)
+        if (linearProgress >= 1) {
           bubbleCrackEffect.phase = 'split'
           bubbleCrackEffect.startTime = p5.millis()
           bubbleCrackEffect.progress = 0
