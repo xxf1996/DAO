@@ -12,6 +12,7 @@ type Cell = {
   layer: number // -1 表示未访问，>=0 表示访问层级
   isProcessing: boolean
   regionId: number // -1 表示不属于任何区域，>=0 表示区域ID
+  isStartPoint: boolean // 是否为出发点
 }
 
 // 网格类
@@ -45,7 +46,8 @@ class Grid {
           visited: false,
           layer: -1,
           isProcessing: false,
-          regionId: -1
+          regionId: -1,
+          isStartPoint: false
         }
       }
     }
@@ -142,6 +144,7 @@ class Grid {
         this.cells[r][c].layer = -1
         this.cells[r][c].isProcessing = false
         this.cells[r][c].regionId = -1
+        this.cells[r][c].isStartPoint = false
       }
     }
   }
@@ -218,7 +221,7 @@ class Grid {
   }
 
   // 绘制网格
-  draw(visitedRegions: Set<number>) {
+  draw(visitedRegions: Set<number>, currentLayer: number) {
     const padding = 40
 
     // 先绘制所有单元格
@@ -229,19 +232,25 @@ class Grid {
         const y = padding + r * this.cellHeight
 
         // 根据单元格状态选择颜色
-        if (cell.visited) {
-          // 已访问：根据层级使用不同颜色
-          const layerColors = [
-            [100, 150, 255], // 第0层 - 蓝色
-            [100, 255, 150], // 第1层 - 绿色
-            [255, 255, 100], // 第2层 - 黄色
-            [255, 150, 100], // 第3层 - 橙色
-            [255, 100, 150], // 第4层 - 粉色
-            [200, 100, 255], // 第5层 - 紫色
-          ]
-          const colorIndex = Math.min(cell.layer, layerColors.length - 1)
-          const color = layerColors[colorIndex]
-          this.p5.fill(color[0], color[1], color[2], 200)
+        if (cell.isStartPoint) {
+          // 出发点：浅红色
+          this.p5.fill(255, 200, 200)
+        } else if (cell.visited) {
+          // 已访问的单元格
+          if (visitedRegions.has(cell.regionId)) {
+            // 有效表格区域：浅绿色
+            this.p5.fill(200, 255, 200)
+          } else if (cell.layer === currentLayer) {
+            // 当前遍历的层级：浅黄色
+            this.p5.fill(255, 255, 200)
+          } else {
+            // 检测过但不是表格区域：原来的颜色
+            if (cell.text) {
+              this.p5.fill(255) // 白色背景
+            } else {
+              this.p5.fill(240) // 浅灰色背景
+            }
+          }
         } else if (cell.text) {
           // 未访问有文本：白色背景
           this.p5.fill(255)
@@ -266,9 +275,9 @@ class Grid {
         this.p5.noFill()
         this.p5.rect(x, y, this.cellWidth, this.cellHeight)
 
-        // 绘制文本
+        // 绘制文本（始终保持黑色，不随单元格状态改变）
         if (cell.text) {
-          this.p5.fill(cell.visited ? 255 : 0)
+          this.p5.fill(0)
           this.p5.noStroke()
           this.p5.textAlign(this.p5.LEFT, this.p5.TOP)
           this.p5.textSize(Math.min(this.cellWidth, this.cellHeight) * 0.3)
@@ -334,25 +343,11 @@ function setup(p5: P5CanvasInstance) {
     // 重置状态
     grid.reset()
 
-    // 找到第一个有文本的单元格作为起始点（如果点击的是空单元格）
-    let startRow = cellPos.row
-    let startCol = cellPos.col
+    // 出发点就是用户点击的单元格
+    const startRow = cellPos.row
+    const startCol = cellPos.col
     const clickedCell = grid.getCell(startRow, startCol)
-
-    // 如果点击的是空单元格，找到最近的有文本单元格
-    if (!clickedCell || !clickedCell.text) {
-      let found = false
-      for (let r = 0; r < grid.rows && !found; r++) {
-        for (let c = 0; c < grid.cols && !found; c++) {
-          if (grid.cells[r][c].text) {
-            startRow = r
-            startCol = c
-            found = true
-          }
-        }
-      }
-      if (!found) return // 没有找到有文本的单元格
-    }
+    if (!clickedCell) return
 
     // 开始检测所有区域
     // 重置所有单元格的 regionId，检测时会重新分配
@@ -364,6 +359,11 @@ function setup(p5: P5CanvasInstance) {
       }
     }
 
+    // 标记用户点击的单元格为出发点
+    clickedCell.isStartPoint = true
+
+    // 如果点击的是有文本的单元格，从该单元格开始BFS
+    // 如果点击的是空单元格，也需要从该单元格开始BFS（虽然不会扩散，但出发点要正确）
     floodFillState = {
       isRunning: true,
       queue: [{ row: startRow, col: startCol, layer: 0 }],
@@ -430,6 +430,7 @@ function draw(p5: P5CanvasInstance, animationSpeed: number, minRows: number, min
 
         if (nextCell) {
           // 开始检测下一个区域，分配新的区域ID
+          // 注意：只有用户点击的单元格才是出发点，自动查找的下一个区域不是出发点
           floodFillState.queue = [{ row: nextCell.row, col: nextCell.col, layer: 0 }]
           floodFillState.currentLayer = 0
           floodFillState.currentRegionId++
@@ -438,37 +439,71 @@ function draw(p5: P5CanvasInstance, animationSpeed: number, minRows: number, min
           floodFillState.isRunning = false
         }
       } else {
-        // 处理当前队列中的单元格
-        const current = floodFillState.queue.shift()!
-        const cell = grid.getCell(current.row, current.col)
+        // 严格按照BFS：先处理完当前层级的所有单元格，再处理下一层级
+        // 获取当前层级的第一个单元格的层级
+        const currentLayer = floodFillState.queue[0].layer
+        floodFillState.currentLayer = currentLayer
 
-        if (cell && !cell.visited) {
-          // 标记为已访问，并分配当前区域ID
-          cell.visited = true
-          cell.layer = current.layer
-          cell.regionId = floodFillState.currentRegionId
-          cell.isProcessing = true // 在当前帧显示高亮边框
+        // 收集当前层级的所有单元格（去重，确保每个单元格只处理一次）
+        const currentLayerCells: Array<{ row: number, col: number, layer: number }> = []
+        const seenCells = new Set<string>() // 用于去重
 
-          // 获取邻居单元格
-          const neighbors = grid.getNeighbors(current.row, current.col)
+        while (floodFillState.queue.length > 0 && floodFillState.queue[0].layer === currentLayer) {
+          const cell = floodFillState.queue.shift()!
+          const cellKey = `${cell.row},${cell.col}`
+          // 只添加未访问且未处理过的单元格
+          const gridCell = grid.getCell(cell.row, cell.col)
+          if (gridCell && !gridCell.visited && !seenCells.has(cellKey)) {
+            currentLayerCells.push(cell)
+            seenCells.add(cellKey)
+          }
+        }
 
-          // 将未访问且有文本的邻居加入队列（四联通）
-          for (const neighbor of neighbors) {
-            if (!neighbor.visited && neighbor.text) {
-              floodFillState.queue.push({
-                row: neighbor.row,
-                col: neighbor.col,
-                layer: current.layer + 1
-              })
+        // 处理当前层级的所有单元格
+        for (const current of currentLayerCells) {
+          const cell = grid.getCell(current.row, current.col)
+
+          // 再次检查，确保单元格未被访问（防止重复访问）
+          if (cell && !cell.visited) {
+            // 只有有文本的单元格才会被标记为已访问并继续BFS
+            if (cell.text) {
+              // 标记为已访问，并分配当前区域ID
+              cell.visited = true
+              cell.layer = current.layer
+              cell.regionId = floodFillState.currentRegionId
+              cell.isProcessing = true // 在当前帧显示高亮边框
+
+              // 获取邻居单元格
+              const neighbors = grid.getNeighbors(current.row, current.col)
+
+              // 将未访问且有文本的邻居加入队列（四联通），层级为当前层级+1
+              // 同时检查队列中是否已存在该单元格，避免重复添加
+              for (const neighbor of neighbors) {
+                if (!neighbor.visited && neighbor.text) {
+                  // 检查队列中是否已存在该单元格
+                  const alreadyInQueue = floodFillState.queue.some(
+                    item => item.row === neighbor.row && item.col === neighbor.col
+                  )
+                  if (!alreadyInQueue) {
+                    floodFillState.queue.push({
+                      row: neighbor.row,
+                      col: neighbor.col,
+                      layer: current.layer + 1
+                    })
+                  }
+                }
+              }
             }
+            // 如果点击的是空单元格，它会被标记为出发点但不会被访问，队列会变空
+            // 然后在下一帧会查找下一个有文本的单元格
           }
         }
       }
     }
   }
 
-  // 绘制网格（传入已访问的区域集合用于绘制红框）
-  grid.draw(floodFillState.visitedRegions)
+  // 绘制网格（传入已访问的区域集合和当前层级用于绘制）
+  grid.draw(floodFillState.visitedRegions, floodFillState.currentLayer)
 }
 
 function FloodFillExcel() {
