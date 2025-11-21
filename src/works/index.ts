@@ -7,6 +7,7 @@ import spectacleSociety from './spectacle-society'
 import tree from './ai-random-tree'
 import idEgoSuperego from './id-ego-superego'
 import slaveToDesire from './slave-to-desire'
+import floodFillExcel from './flood-fill-excel'
 
 export const works: WorkInfo[] = [
   logo,
@@ -41,5 +42,6 @@ export const works: WorkInfo[] = [
   spectacleSociety,
   tree,
   idEgoSuperego,
-  slaveToDesire
+  slaveToDesire,
+  floodFillExcel
 ]
