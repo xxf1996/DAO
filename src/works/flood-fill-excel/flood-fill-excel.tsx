@@ -377,7 +377,7 @@ function setup(p5: P5CanvasInstance) {
   }
 }
 
-function draw(p5: P5CanvasInstance, animationSpeed: number) {
+function draw(p5: P5CanvasInstance, animationSpeed: number, minRows: number, minCols: number) {
   p5.background(250)
 
   // 更新单元格大小（响应窗口大小变化）
@@ -404,9 +404,17 @@ function draw(p5: P5CanvasInstance, animationSpeed: number) {
 
       // 如果当前区域队列为空，检查是否还有未检测的区域
       if (floodFillState.queue.length === 0) {
-        // 标记当前区域为已访问
+        // 检查当前区域是否满足最小行数和列数要求
         if (floodFillState.currentRegionId >= 0) {
-          floodFillState.visitedRegions.add(floodFillState.currentRegionId)
+          const bounds = grid.getRegionBounds(floodFillState.currentRegionId)
+          if (bounds) {
+            const regionRows = bounds.maxRow - bounds.minRow + 1
+            const regionCols = bounds.maxCol - bounds.minCol + 1
+            // 只有满足最小行数和列数要求的区域才会被标记为有效表格
+            if (regionRows >= minRows && regionCols >= minCols) {
+              floodFillState.visitedRegions.add(floodFillState.currentRegionId)
+            }
+          }
         }
 
         // 查找下一个未访问的有文本单元格
@@ -472,6 +480,8 @@ function FloodFillExcel() {
     rows: { value: 20, min: 10, max: 50, step: 1 },
     cols: { value: 30, min: 15, max: 60, step: 1 },
     animationSpeed: { value: 1, min: 0.1, max: 5, step: 0.1 },
+    minRows: { value: 2, min: 1, max: 10, step: 1 },
+    minCols: { value: 2, min: 1, max: 10, step: 1 },
     reset: button(() => {
       resetTriggerRef.current++
       if (gridRef.current) {
@@ -531,7 +541,7 @@ function FloodFillExcel() {
   }
 
   function drawWithRef(p5: P5CanvasInstance) {
-    draw(p5, controls.animationSpeed)
+    draw(p5, controls.animationSpeed, controls.minRows, controls.minCols)
   }
 
   const { sketch } = useP5(setupWithRef, drawWithRef)
