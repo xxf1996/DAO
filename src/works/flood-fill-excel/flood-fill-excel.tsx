@@ -11,6 +11,7 @@ type Cell = {
   visited: boolean
   layer: number // -1 表示未访问，>=0 表示访问层级
   isProcessing: boolean
+  regionId: number // -1 表示不属于任何区域，>=0 表示区域ID
 }
 
 // 网格类
@@ -43,7 +44,8 @@ class Grid {
           text: '',
           visited: false,
           layer: -1,
-          isProcessing: false
+          isProcessing: false,
+          regionId: -1
         }
       }
     }
@@ -64,40 +66,70 @@ class Grid {
     this.cellHeight = availableHeight / this.rows
   }
 
-  // 生成预设的表格区域
+  // 生成随机的表格区域
   generatePresetRegions() {
-    // 清除所有文本
+    // 清除所有文本和区域ID
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
         this.cells[r][c].text = ''
+        this.cells[r][c].regionId = -1
       }
     }
 
-    // 区域1: 左上角的小表格 (5x4)
-    const region1 = { startRow: 2, startCol: 2, rows: 5, cols: 4, text: 'A' }
-    this.fillRegion(region1.startRow, region1.startCol, region1.rows, region1.cols, region1.text)
+    // 随机生成3-6个区域
+    const numRegions = this.p5.random(3, 7)
 
-    // 区域2: 中间的大表格 (6x8)
-    const region2 = { startRow: 3, startCol: 10, rows: 6, cols: 8, text: 'B' }
-    this.fillRegion(region2.startRow, region2.startCol, region2.rows, region2.cols, region2.text)
+    for (let i = 0; i < numRegions; i++) {
+      // 随机区域大小（不一定填满）
+      const minRows = 2
+      const maxRows = Math.min(8, Math.floor(this.rows / 3))
+      const minCols = 2
+      const maxCols = Math.min(10, Math.floor(this.cols / 3))
 
-    // 区域3: 右侧的表格 (4x5)
-    const region3 = { startRow: 2, startCol: 20, rows: 4, cols: 5, text: 'C' }
-    this.fillRegion(region3.startRow, region3.startCol, region3.rows, region3.cols, region3.text)
+      const regionRows = this.p5.random(minRows, maxRows)
+      const regionCols = this.p5.random(minCols, maxCols)
 
-    // 区域4: 底部的小表格 (3x6)
-    const region4 = { startRow: 12, startCol: 5, rows: 3, cols: 6, text: 'D' }
-    this.fillRegion(region4.startRow, region4.startCol, region4.rows, region4.cols, region4.text)
+      // 随机起始位置
+      const startRow = Math.floor(this.p5.random(0, this.rows - regionRows))
+      const startCol = Math.floor(this.p5.random(0, this.cols - regionCols))
 
-    // 区域5: 右下角的表格 (5x7)
-    const region5 = { startRow: 13, startCol: 18, rows: 5, cols: 7, text: 'E' }
-    this.fillRegion(region5.startRow, region5.startCol, region5.rows, region5.cols, region5.text)
+      // 随机填充密度（0.3-0.9，即30%-90%的单元格有文本）
+      const fillDensity = this.p5.random(0.3, 0.9)
+      const regionId = i
+
+      this.fillRandomRegion(startRow, startCol, regionRows, regionCols, regionId, fillDensity)
+    }
   }
 
-  private fillRegion(startRow: number, startCol: number, rows: number, cols: number, text: string) {
-    for (let r = startRow; r < startRow + rows && r < this.rows; r++) {
-      for (let c = startCol; c < startCol + cols && c < this.cols; c++) {
-        this.cells[r][c].text = `${text}${r - startRow + 1}-${c - startCol + 1}`
+  private fillRandomRegion(
+    startRow: number,
+    startCol: number,
+    rows: number,
+    cols: number,
+    regionId: number,
+    fillDensity: number
+  ) {
+    const totalCells = rows * cols
+    const cellsToFill = Math.floor(totalCells * fillDensity)
+    const filledCells: Array<{ r: number, c: number }> = []
+
+    // 随机选择要填充的单元格
+    for (let i = 0; i < cellsToFill; i++) {
+      let r: number, c: number
+      let attempts = 0
+      do {
+        r = startRow + Math.floor(this.p5.random(0, rows))
+        c = startCol + Math.floor(this.p5.random(0, cols))
+        attempts++
+      } while (
+        filledCells.some(cell => cell.r === r && cell.c === c)
+        && attempts < 100
+      )
+
+      if (attempts < 100) {
+        filledCells.push({ r, c })
+        this.cells[r][c].text = `${String.fromCharCode(65 + regionId)}${filledCells.length}`
+        this.cells[r][c].regionId = regionId
       }
     }
   }
@@ -109,8 +141,34 @@ class Grid {
         this.cells[r][c].visited = false
         this.cells[r][c].layer = -1
         this.cells[r][c].isProcessing = false
+        this.cells[r][c].regionId = -1
       }
     }
+  }
+
+  // 获取区域边界（用于绘制红框）
+  getRegionBounds(regionId: number): { minRow: number, maxRow: number, minCol: number, maxCol: number } | null {
+    let minRow = Infinity
+    let maxRow = -Infinity
+    let minCol = Infinity
+    let maxCol = -Infinity
+    let found = false
+
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        if (this.cells[r][c].regionId === regionId && this.cells[r][c].text) {
+          found = true
+          minRow = Math.min(minRow, r)
+          maxRow = Math.max(maxRow, r)
+          minCol = Math.min(minCol, c)
+          maxCol = Math.max(maxCol, c)
+        }
+      }
+    }
+
+    if (!found) return null
+
+    return { minRow, maxRow, minCol, maxCol }
   }
 
   // 获取单元格
@@ -160,9 +218,10 @@ class Grid {
   }
 
   // 绘制网格
-  draw() {
+  draw(visitedRegions: Set<number>) {
     const padding = 40
 
+    // 先绘制所有单元格
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
         const cell = this.cells[r][c]
@@ -217,6 +276,22 @@ class Grid {
         }
       }
     }
+
+    // 绘制已检测区域的红框
+    this.p5.stroke(255, 0, 0)
+    this.p5.strokeWeight(3)
+    this.p5.noFill()
+
+    for (const regionId of visitedRegions) {
+      const bounds = this.getRegionBounds(regionId)
+      if (bounds) {
+        const x = padding + bounds.minCol * this.cellWidth
+        const y = padding + bounds.minRow * this.cellHeight
+        const width = (bounds.maxCol - bounds.minCol + 1) * this.cellWidth
+        const height = (bounds.maxRow - bounds.minRow + 1) * this.cellHeight
+        this.p5.rect(x, y, width, height)
+      }
+    }
   }
 }
 
@@ -225,13 +300,23 @@ type FloodFillState = {
   isRunning: boolean
   queue: Array<{ row: number, col: number, layer: number }>
   currentLayer: number
+  currentRegionId: number // 当前正在检测的区域ID
+  visitedRegions: Set<number> // 已检测完成的区域ID集合
+  nextStartCell: { row: number, col: number } | null
+  frameCounter: number
+  speedDelay: number // 帧延迟，用于控制动画速度
 }
 
 let grid: Grid
 let floodFillState: FloodFillState = {
   isRunning: false,
   queue: [],
-  currentLayer: 0
+  currentLayer: 0,
+  currentRegionId: -1,
+  visitedRegions: new Set(),
+  nextStartCell: null,
+  frameCounter: 0,
+  speedDelay: 10 // 默认每10帧处理一次
 }
 
 function setup(p5: P5CanvasInstance) {
@@ -246,15 +331,48 @@ function setup(p5: P5CanvasInstance) {
     const cellPos = grid.screenToCell(p5.mouseX, p5.mouseY)
     if (!cellPos) return
 
-    const cell = grid.getCell(cellPos.row, cellPos.col)
-    if (!cell || !cell.text) return
-
     // 重置状态
     grid.reset()
+
+    // 找到第一个有文本的单元格作为起始点（如果点击的是空单元格）
+    let startRow = cellPos.row
+    let startCol = cellPos.col
+    const clickedCell = grid.getCell(startRow, startCol)
+
+    // 如果点击的是空单元格，找到最近的有文本单元格
+    if (!clickedCell || !clickedCell.text) {
+      let found = false
+      for (let r = 0; r < grid.rows && !found; r++) {
+        for (let c = 0; c < grid.cols && !found; c++) {
+          if (grid.cells[r][c].text) {
+            startRow = r
+            startCol = c
+            found = true
+          }
+        }
+      }
+      if (!found) return // 没有找到有文本的单元格
+    }
+
+    // 开始检测所有区域
+    // 重置所有单元格的 regionId，检测时会重新分配
+    for (let r = 0; r < grid.rows; r++) {
+      for (let c = 0; c < grid.cols; c++) {
+        if (grid.cells[r][c].text) {
+          grid.cells[r][c].regionId = -1
+        }
+      }
+    }
+
     floodFillState = {
       isRunning: true,
-      queue: [{ row: cellPos.row, col: cellPos.col, layer: 0 }],
-      currentLayer: 0
+      queue: [{ row: startRow, col: startCol, layer: 0 }],
+      currentLayer: 0,
+      currentRegionId: 0, // 从0开始分配区域ID
+      visitedRegions: new Set(),
+      nextStartCell: null,
+      frameCounter: 0,
+      speedDelay: 10
     }
   }
 }
@@ -265,6 +383,10 @@ function draw(p5: P5CanvasInstance, animationSpeed: number) {
   // 更新单元格大小（响应窗口大小变化）
   grid.updateCellSize()
 
+  // 更新动画速度延迟（速度越小，延迟越大）
+  // animationSpeed: 0.1-5，转换为延迟：50-1帧
+  floodFillState.speedDelay = Math.max(1, Math.floor(50 / animationSpeed))
+
   // 清除所有单元格的处理状态（在绘制新帧之前）
   for (let r = 0; r < grid.rows; r++) {
     for (let c = 0; c < grid.cols; c++) {
@@ -273,44 +395,72 @@ function draw(p5: P5CanvasInstance, animationSpeed: number) {
   }
 
   // 执行 Flood Fill 算法
-  if (floodFillState.isRunning && floodFillState.queue.length > 0) {
-    // 根据动画速度决定每帧处理的单元格数量
-    const cellsPerFrame = Math.max(1, Math.floor(animationSpeed))
+  if (floodFillState.isRunning) {
+    floodFillState.frameCounter++
 
-    for (let i = 0; i < cellsPerFrame && floodFillState.queue.length > 0; i++) {
-      const current = floodFillState.queue.shift()!
-      const cell = grid.getCell(current.row, current.col)
+    // 根据速度延迟决定是否处理
+    if (floodFillState.frameCounter >= floodFillState.speedDelay) {
+      floodFillState.frameCounter = 0
 
-      if (!cell || cell.visited) continue
+      // 如果当前区域队列为空，检查是否还有未检测的区域
+      if (floodFillState.queue.length === 0) {
+        // 标记当前区域为已访问
+        if (floodFillState.currentRegionId >= 0) {
+          floodFillState.visitedRegions.add(floodFillState.currentRegionId)
+        }
 
-      // 标记为已访问
-      cell.visited = true
-      cell.layer = current.layer
-      cell.isProcessing = true // 在当前帧显示高亮边框
+        // 查找下一个未访问的有文本单元格
+        let nextCell: { row: number, col: number } | null = null
+        for (let r = 0; r < grid.rows && !nextCell; r++) {
+          for (let c = 0; c < grid.cols && !nextCell; c++) {
+            const cell = grid.cells[r][c]
+            if (cell.text && !cell.visited) {
+              nextCell = { row: r, col: c }
+            }
+          }
+        }
 
-      // 获取邻居单元格
-      const neighbors = grid.getNeighbors(current.row, current.col)
+        if (nextCell) {
+          // 开始检测下一个区域，分配新的区域ID
+          floodFillState.queue = [{ row: nextCell.row, col: nextCell.col, layer: 0 }]
+          floodFillState.currentLayer = 0
+          floodFillState.currentRegionId++
+        } else {
+          // 所有区域都已检测完成
+          floodFillState.isRunning = false
+        }
+      } else {
+        // 处理当前队列中的单元格
+        const current = floodFillState.queue.shift()!
+        const cell = grid.getCell(current.row, current.col)
 
-      // 将未访问且有文本的邻居加入队列
-      for (const neighbor of neighbors) {
-        if (!neighbor.visited && neighbor.text) {
-          floodFillState.queue.push({
-            row: neighbor.row,
-            col: neighbor.col,
-            layer: current.layer + 1
-          })
+        if (cell && !cell.visited) {
+          // 标记为已访问，并分配当前区域ID
+          cell.visited = true
+          cell.layer = current.layer
+          cell.regionId = floodFillState.currentRegionId
+          cell.isProcessing = true // 在当前帧显示高亮边框
+
+          // 获取邻居单元格
+          const neighbors = grid.getNeighbors(current.row, current.col)
+
+          // 将未访问且有文本的邻居加入队列（四联通）
+          for (const neighbor of neighbors) {
+            if (!neighbor.visited && neighbor.text) {
+              floodFillState.queue.push({
+                row: neighbor.row,
+                col: neighbor.col,
+                layer: current.layer + 1
+              })
+            }
+          }
         }
       }
     }
-
-    // 如果队列为空，算法完成
-    if (floodFillState.queue.length === 0) {
-      floodFillState.isRunning = false
-    }
   }
 
-  // 绘制网格
-  grid.draw()
+  // 绘制网格（传入已访问的区域集合用于绘制红框）
+  grid.draw(floodFillState.visitedRegions)
 }
 
 function FloodFillExcel() {
@@ -329,7 +479,12 @@ function FloodFillExcel() {
         floodFillState = {
           isRunning: false,
           queue: [],
-          currentLayer: 0
+          currentLayer: 0,
+          currentRegionId: -1,
+          visitedRegions: new Set(),
+          nextStartCell: null,
+          frameCounter: 0,
+          speedDelay: 10
         }
       }
     }),
@@ -341,7 +496,12 @@ function FloodFillExcel() {
         floodFillState = {
           isRunning: false,
           queue: [],
-          currentLayer: 0
+          currentLayer: 0,
+          currentRegionId: -1,
+          visitedRegions: new Set(),
+          nextStartCell: null,
+          frameCounter: 0,
+          speedDelay: 10
         }
       }
     })
@@ -355,7 +515,12 @@ function FloodFillExcel() {
       floodFillState = {
         isRunning: false,
         queue: [],
-        currentLayer: 0
+        currentLayer: 0,
+        currentRegionId: -1,
+        visitedRegions: new Set(),
+        nextStartCell: null,
+        frameCounter: 0,
+        speedDelay: 10
       }
     }
   }, [controls.rows, controls.cols])
