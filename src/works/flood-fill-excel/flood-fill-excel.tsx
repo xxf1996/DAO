@@ -9,7 +9,7 @@ type Cell = {
   col: number
   text: string
   visited: boolean
-  layer: number // -1 表示未访问，>=0 表示访问层级
+  layer: number // -1 表示未访问，>=0 表示访问层级（从起始点的距离）
   isProcessing: boolean
   regionId: number // -1 表示不属于任何区域，>=0 表示区域ID
   isStartPoint: boolean // 是否为出发点
@@ -221,7 +221,7 @@ class Grid {
   }
 
   // 绘制网格
-  draw(visitedRegions: Set<number>, currentLayer: number) {
+  draw(validRegions: Set<number>) {
     const padding = 40
 
     // 先绘制所有单元格
@@ -235,28 +235,21 @@ class Grid {
         if (cell.isStartPoint) {
           // 出发点：浅红色
           this.p5.fill(255, 200, 200)
+        } else if (cell.isProcessing) {
+          // 当前正在处理的单元格（当前层级）：浅黄色
+          this.p5.fill(255, 255, 200)
         } else if (cell.visited) {
           // 已访问的单元格
-          if (visitedRegions.has(cell.regionId)) {
+          if (validRegions.has(cell.regionId)) {
             // 有效表格区域：浅绿色
             this.p5.fill(200, 255, 200)
-          } else if (cell.layer === currentLayer) {
-            // 当前遍历的层级：浅黄色
-            this.p5.fill(255, 255, 200)
           } else {
-            // 检测过但不是表格区域：原来的颜色
-            if (cell.text) {
-              this.p5.fill(255) // 白色背景
-            } else {
-              this.p5.fill(240) // 浅灰色背景
-            }
+            // 检测过但还未判定是否有效：浅蓝色
+            this.p5.fill(200, 220, 255)
           }
-        } else if (cell.text) {
-          // 未访问有文本：白色背景
-          this.p5.fill(255)
         } else {
-          // 未访问无文本：浅灰色背景
-          this.p5.fill(240)
+          // 未访问：白色背景（无论是否有文本）
+          this.p5.fill(255)
         }
 
         // 绘制单元格背景
@@ -286,12 +279,12 @@ class Grid {
       }
     }
 
-    // 绘制已检测区域的红框
+    // 绘制有效区域的红框
     this.p5.stroke(255, 0, 0)
     this.p5.strokeWeight(3)
     this.p5.noFill()
 
-    for (const regionId of visitedRegions) {
+    for (const regionId of validRegions) {
       const bounds = this.getRegionBounds(regionId)
       if (bounds) {
         const x = padding + bounds.minCol * this.cellWidth
@@ -307,25 +300,39 @@ class Grid {
 // Flood Fill 算法状态
 type FloodFillState = {
   isRunning: boolean
-  queue: Array<{ row: number, col: number, layer: number }>
-  currentLayer: number
+  queue: Array<{ row: number, col: number, layer: number }> // BFS 队列，存储位置和层级
+  visited: Set<string> // 已访问的单元格，格式为 "row,col"
+  currentRegion: Array<[number, number]> // 当前区域的所有单元格
+  minRow: number
+  maxRow: number
+  minCol: number
+  maxCol: number
   currentRegionId: number // 当前正在检测的区域ID
-  visitedRegions: Set<number> // 已检测完成的区域ID集合
-  nextStartCell: { row: number, col: number } | null
+  validRegions: Array<{ id: number, bounds: { minRow: number, maxRow: number, minCol: number, maxCol: number } }> // 有效的区域列表
   frameCounter: number
   speedDelay: number // 帧延迟，用于控制动画速度
+  startPoint: { row: number, col: number } | null // 用户点击的起始点
+  searchingNext: boolean // 是否正在查找下一个未访问的单元格
+  currentLayer: number // 当前正在处理的层级
 }
 
 let grid: Grid
 let floodFillState: FloodFillState = {
   isRunning: false,
   queue: [],
-  currentLayer: 0,
-  currentRegionId: -1,
-  visitedRegions: new Set(),
-  nextStartCell: null,
+  visited: new Set(),
+  currentRegion: [],
+  minRow: Infinity,
+  maxRow: -Infinity,
+  minCol: Infinity,
+  maxCol: -Infinity,
+  currentRegionId: 0,
+  validRegions: [],
   frameCounter: 0,
-  speedDelay: 10 // 默认每10帧处理一次
+  speedDelay: 10,
+  startPoint: null,
+  searchingNext: false,
+  currentLayer: -1
 }
 
 function setup(p5: P5CanvasInstance) {
@@ -343,36 +350,31 @@ function setup(p5: P5CanvasInstance) {
     // 重置状态
     grid.reset()
 
-    // 出发点就是用户点击的单元格
     const startRow = cellPos.row
     const startCol = cellPos.col
     const clickedCell = grid.getCell(startRow, startCol)
     if (!clickedCell) return
 
-    // 开始检测所有区域
-    // 重置所有单元格的 regionId，检测时会重新分配
-    for (let r = 0; r < grid.rows; r++) {
-      for (let c = 0; c < grid.cols; c++) {
-        if (grid.cells[r][c].text) {
-          grid.cells[r][c].regionId = -1
-        }
-      }
-    }
-
     // 标记用户点击的单元格为出发点
     clickedCell.isStartPoint = true
 
-    // 如果点击的是有文本的单元格，从该单元格开始BFS
-    // 如果点击的是空单元格，也需要从该单元格开始BFS（虽然不会扩散，但出发点要正确）
+    // 初始化 flood fill 状态，无论点击的是否有文本都从该点开始
     floodFillState = {
       isRunning: true,
       queue: [{ row: startRow, col: startCol, layer: 0 }],
-      currentLayer: 0,
-      currentRegionId: 0, // 从0开始分配区域ID
-      visitedRegions: new Set(),
-      nextStartCell: null,
+      visited: new Set(),
+      currentRegion: [],
+      minRow: Infinity,
+      maxRow: -Infinity,
+      minCol: Infinity,
+      maxCol: -Infinity,
+      currentRegionId: 0,
+      validRegions: [],
       frameCounter: 0,
-      speedDelay: 10
+      speedDelay: 10,
+      startPoint: { row: startRow, col: startCol },
+      searchingNext: false,
+      currentLayer: 0
     }
   }
 }
@@ -387,14 +389,7 @@ function draw(p5: P5CanvasInstance, animationSpeed: number, minRows: number, min
   // animationSpeed: 0.1-5，转换为延迟：50-1帧
   floodFillState.speedDelay = Math.max(1, Math.floor(50 / animationSpeed))
 
-  // 清除所有单元格的处理状态（在绘制新帧之前）
-  for (let r = 0; r < grid.rows; r++) {
-    for (let c = 0; c < grid.cols; c++) {
-      grid.cells[r][c].isProcessing = false
-    }
-  }
-
-  // 执行 Flood Fill 算法
+  // 执行 Flood Fill 算法 (严格按照 detectTableRegions 的逻辑)
   if (floodFillState.isRunning) {
     floodFillState.frameCounter++
 
@@ -402,108 +397,148 @@ function draw(p5: P5CanvasInstance, animationSpeed: number, minRows: number, min
     if (floodFillState.frameCounter >= floodFillState.speedDelay) {
       floodFillState.frameCounter = 0
 
-      // 如果当前区域队列为空，检查是否还有未检测的区域
-      if (floodFillState.queue.length === 0) {
-        // 检查当前区域是否满足最小行数和列数要求
-        if (floodFillState.currentRegionId >= 0) {
-          const bounds = grid.getRegionBounds(floodFillState.currentRegionId)
-          if (bounds) {
-            const regionRows = bounds.maxRow - bounds.minRow + 1
-            const regionCols = bounds.maxCol - bounds.minCol + 1
-            // 只有满足最小行数和列数要求的区域才会被标记为有效表格
-            if (regionRows >= minRows && regionCols >= minCols) {
-              floodFillState.visitedRegions.add(floodFillState.currentRegionId)
+      // 如果正在查找下一个未访问的单元格
+      if (floodFillState.searchingNext) {
+        let found = false
+        for (let r = 0; r < grid.rows && !found; r++) {
+          for (let c = 0; c < grid.cols && !found; c++) {
+            const cellKey = `${r},${c}`
+            const cell = grid.getCell(r, c)
+            if (cell && cell.text && !floodFillState.visited.has(cellKey)) {
+              // 找到下一个未访问的有文本单元格，开始新区域的BFS
+              floodFillState.queue = [{ row: r, col: c, layer: 0 }]
+              floodFillState.currentRegion = []
+              floodFillState.minRow = r
+              floodFillState.maxRow = r
+              floodFillState.minCol = c
+              floodFillState.maxCol = c
+              floodFillState.currentRegionId++
+              floodFillState.searchingNext = false
+              floodFillState.currentLayer = 0
+              found = true
             }
           }
         }
 
-        // 查找下一个未访问的有文本单元格
-        let nextCell: { row: number, col: number } | null = null
-        for (let r = 0; r < grid.rows && !nextCell; r++) {
-          for (let c = 0; c < grid.cols && !nextCell; c++) {
-            const cell = grid.cells[r][c]
-            if (cell.text && !cell.visited) {
-              nextCell = { row: r, col: c }
-            }
-          }
-        }
-
-        if (nextCell) {
-          // 开始检测下一个区域，分配新的区域ID
-          // 注意：只有用户点击的单元格才是出发点，自动查找的下一个区域不是出发点
-          floodFillState.queue = [{ row: nextCell.row, col: nextCell.col, layer: 0 }]
-          floodFillState.currentLayer = 0
-          floodFillState.currentRegionId++
-        } else {
-          // 所有区域都已检测完成
+        if (!found) {
+          // 没有找到更多区域，算法结束
           floodFillState.isRunning = false
         }
-      } else {
-        // 严格按照BFS：先处理完当前层级的所有单元格，再处理下一层级
-        // 获取当前层级的第一个单元格的层级
-        const currentLayer = floodFillState.queue[0].layer
-        floodFillState.currentLayer = currentLayer
+        return
+      }
 
-        // 收集当前层级的所有单元格（去重，确保每个单元格只处理一次）
-        const currentLayerCells: Array<{ row: number, col: number, layer: number }> = []
-        const seenCells = new Set<string>() // 用于去重
+      // 如果当前区域的队列为空，检查当前区域是否有效
+      if (floodFillState.queue.length === 0) {
+        if (floodFillState.currentRegion.length > 0) {
+          // 检查当前区域大小是否满足最小要求
+          const rowCount = floodFillState.maxRow - floodFillState.minRow + 1
+          const colCount = floodFillState.maxCol - floodFillState.minCol + 1
 
-        while (floodFillState.queue.length > 0 && floodFillState.queue[0].layer === currentLayer) {
-          const cell = floodFillState.queue.shift()!
-          const cellKey = `${cell.row},${cell.col}`
-          // 只添加未访问且未处理过的单元格
-          const gridCell = grid.getCell(cell.row, cell.col)
-          if (gridCell && !gridCell.visited && !seenCells.has(cellKey)) {
-            currentLayerCells.push(cell)
-            seenCells.add(cellKey)
+          if (rowCount >= minRows && colCount >= minCols) {
+            // 标记当前区域为有效区域
+            floodFillState.validRegions.push({
+              id: floodFillState.currentRegionId,
+              bounds: {
+                minRow: floodFillState.minRow,
+                maxRow: floodFillState.maxRow,
+                minCol: floodFillState.minCol,
+                maxCol: floodFillState.maxCol
+              }
+            })
+
+            // 为当前区域的所有单元格分配区域ID
+            for (const [row, col] of floodFillState.currentRegion) {
+              const cell = grid.getCell(row, col)
+              if (cell) {
+                cell.regionId = floodFillState.currentRegionId
+              }
+            }
           }
         }
 
-        // 处理当前层级的所有单元格
-        for (const current of currentLayerCells) {
-          const cell = grid.getCell(current.row, current.col)
+        // 开始查找下一个区域
+        floodFillState.searchingNext = true
+        return
+      }
 
-          // 再次检查，确保单元格未被访问（防止重复访问）
-          if (cell && !cell.visited) {
-            // 只有有文本的单元格才会被标记为已访问并继续BFS
-            if (cell.text) {
-              // 标记为已访问，并分配当前区域ID
-              cell.visited = true
-              cell.layer = current.layer
-              cell.regionId = floodFillState.currentRegionId
-              cell.isProcessing = true // 在当前帧显示高亮边框
+      // 处理队列中的下一个单元格（每次只处理一个）
+      if (floodFillState.queue.length === 0) return
 
-              // 获取邻居单元格
-              const neighbors = grid.getNeighbors(current.row, current.col)
+      const current = floodFillState.queue.shift()!
+      const cellKey = `${current.row},${current.col}`
+      const cell = grid.getCell(current.row, current.col)
 
-              // 将未访问且有文本的邻居加入队列（四联通），层级为当前层级+1
-              // 同时检查队列中是否已存在该单元格，避免重复添加
-              for (const neighbor of neighbors) {
-                if (!neighbor.visited && neighbor.text) {
-                  // 检查队列中是否已存在该单元格
-                  const alreadyInQueue = floodFillState.queue.some(
-                    item => item.row === neighbor.row && item.col === neighbor.col
-                  )
-                  if (!alreadyInQueue) {
-                    floodFillState.queue.push({
-                      row: neighbor.row,
-                      col: neighbor.col,
-                      layer: current.layer + 1
-                    })
-                  }
-                }
-              }
-            }
-            // 如果点击的是空单元格，它会被标记为出发点但不会被访问，队列会变空
-            // 然后在下一帧会查找下一个有文本的单元格
+      // 检查单元格是否已访问或无效
+      if (!cell || floodFillState.visited.has(cellKey)) {
+        return
+      }
+
+      // 检查单元格是否有文本（严格遵循 detectTableRegions 的逻辑）
+      if (!cell.text) {
+        // 空单元格直接标记为已访问，但不加入区域，也不扩展
+        floodFillState.visited.add(cellKey)
+        cell.visited = true
+        cell.layer = current.layer
+        return
+      }
+
+      floodFillState.currentLayer = current.layer
+
+      // 清除之前的处理状态
+      for (let r = 0; r < grid.rows; r++) {
+        for (let c = 0; c < grid.cols; c++) {
+          grid.cells[r][c].isProcessing = false
+        }
+      }
+
+      // 标记为已访问
+      floodFillState.visited.add(cellKey)
+      cell.visited = true
+      cell.layer = current.layer
+      cell.isProcessing = true // 标记为当前正在处理
+
+      // 将有文本的单元格加入当前区域并更新边界
+      floodFillState.currentRegion.push([current.row, current.col])
+      floodFillState.minRow = Math.min(floodFillState.minRow, current.row)
+      floodFillState.maxRow = Math.max(floodFillState.maxRow, current.row)
+      floodFillState.minCol = Math.min(floodFillState.minCol, current.col)
+      floodFillState.maxCol = Math.max(floodFillState.maxCol, current.col)
+
+      // 检查四个方向的邻居（上下左右）
+      const neighbors: Array<[number, number]> = [
+        [current.row - 1, current.col], // 上
+        [current.row + 1, current.col], // 下
+        [current.row, current.col - 1], // 左
+        [current.row, current.col + 1] // 右
+      ]
+
+      for (const [nr, nc] of neighbors) {
+        const neighborKey = `${nr},${nc}`
+        const neighborCell = grid.getCell(nr, nc)
+
+        // 检查邻居是否在范围内、未访问、且有文本（严格遵循 detectTableRegions 的逻辑）
+        if (
+          nr >= 0 && nr < grid.rows
+          && nc >= 0 && nc < grid.cols
+          && neighborCell
+          && !floodFillState.visited.has(neighborKey)
+          && neighborCell.text // 只有邻居有文本时才加入队列（关键！）
+        ) {
+          // 检查队列中是否已存在该邻居
+          const alreadyInQueue = floodFillState.queue.some(
+            item => item.row === nr && item.col === nc
+          )
+          if (!alreadyInQueue) {
+            floodFillState.queue.push({ row: nr, col: nc, layer: current.layer + 1 })
           }
         }
       }
     }
   }
 
-  // 绘制网格（传入已访问的区域集合和当前层级用于绘制）
-  grid.draw(floodFillState.visitedRegions, floodFillState.currentLayer)
+  // 绘制网格（传入有效区域集合用于绘制）
+  const validRegionIds = new Set(floodFillState.validRegions.map(r => r.id))
+  grid.draw(validRegionIds)
 }
 
 function FloodFillExcel() {
@@ -514,7 +549,7 @@ function FloodFillExcel() {
   const controls = useControls({
     rows: { value: 20, min: 10, max: 50, step: 1 },
     cols: { value: 30, min: 15, max: 60, step: 1 },
-    animationSpeed: { value: 1, min: 0.1, max: 5, step: 0.1 },
+    animationSpeed: { value: 6, min: 1, max: 15, step: 0.1 },
     minRows: { value: 2, min: 1, max: 10, step: 1 },
     minCols: { value: 2, min: 1, max: 10, step: 1 },
     reset: button(() => {
@@ -524,12 +559,19 @@ function FloodFillExcel() {
         floodFillState = {
           isRunning: false,
           queue: [],
-          currentLayer: 0,
-          currentRegionId: -1,
-          visitedRegions: new Set(),
-          nextStartCell: null,
+          visited: new Set(),
+          currentRegion: [],
+          minRow: Infinity,
+          maxRow: -Infinity,
+          minCol: Infinity,
+          maxCol: -Infinity,
+          currentRegionId: 0,
+          validRegions: [],
           frameCounter: 0,
-          speedDelay: 10
+          speedDelay: 10,
+          startPoint: null,
+          searchingNext: false,
+          currentLayer: -1
         }
       }
     }),
@@ -541,12 +583,19 @@ function FloodFillExcel() {
         floodFillState = {
           isRunning: false,
           queue: [],
-          currentLayer: 0,
-          currentRegionId: -1,
-          visitedRegions: new Set(),
-          nextStartCell: null,
+          visited: new Set(),
+          currentRegion: [],
+          minRow: Infinity,
+          maxRow: -Infinity,
+          minCol: Infinity,
+          maxCol: -Infinity,
+          currentRegionId: 0,
+          validRegions: [],
           frameCounter: 0,
-          speedDelay: 10
+          speedDelay: 10,
+          startPoint: null,
+          searchingNext: false,
+          currentLayer: -1
         }
       }
     })
@@ -560,12 +609,19 @@ function FloodFillExcel() {
       floodFillState = {
         isRunning: false,
         queue: [],
-        currentLayer: 0,
-        currentRegionId: -1,
-        visitedRegions: new Set(),
-        nextStartCell: null,
+        visited: new Set(),
+        currentRegion: [],
+        minRow: Infinity,
+        maxRow: -Infinity,
+        minCol: Infinity,
+        maxCol: -Infinity,
+        currentRegionId: 0,
+        validRegions: [],
         frameCounter: 0,
-        speedDelay: 10
+        speedDelay: 10,
+        startPoint: null,
+        searchingNext: false,
+        currentLayer: -1
       }
     }
   }, [controls.rows, controls.cols])
