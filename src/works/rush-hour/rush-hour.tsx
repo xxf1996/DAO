@@ -23,6 +23,8 @@ let runner: Matter.Runner
 
 // 球体数组
 let balls: Matter.Body[] = []
+// 球体emoji映射（使用WeakMap自动管理内存）
+const ballEmojis = new WeakMap<Matter.Body, string>()
 
 // 地形刚体
 let funnelBodies: Matter.Body[] = []
@@ -65,11 +67,14 @@ const CONVEYOR_FORCE_MULTIPLIER = 0.0002 // 传送带对球体施加的力系数
 
 // 球体配置
 const BALL_MIN_RADIUS = 6
-const BALL_MAX_RADIUS = 15
+const BALL_MAX_RADIUS = 14
 const BALL_SPAWN_INTERVAL = 100 // 生成间隔（毫秒）
 
 // Debug 模式
 let debugMode = false
+// Emoji 模式
+let emojiMode = false
+const EMOJIS = ['😅', '😂', '😍', '😡', '😭', '😱', '🤔', '🥳', '🤯', '😎', '🤗', '😴']
 
 // 创建漏斗形状的静态刚体
 function createFunnel(p5: P5CanvasInstance): Matter.Body[] {
@@ -342,6 +347,12 @@ function createBall(p5: P5CanvasInstance): Matter.Body {
     frictionAir: 0.01
   })
 
+  // 如果启用emoji模式，随机选择一个emoji
+  if (emojiMode) {
+    const randomEmoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)]
+    ballEmojis.set(ball, randomEmoji)
+  }
+
   return ball
 }
 
@@ -350,6 +361,7 @@ function cleanupBalls(p5: P5CanvasInstance) {
   balls = balls.filter((ball) => {
     if (ball.position.y > p5.height + 100) {
       Composite.remove(world, ball)
+      // WeakMap会自动清理，无需手动删除
       return false
     }
     return true
@@ -462,10 +474,11 @@ function setup(p5: P5CanvasInstance) {
   p5.textAlign(p5.CENTER, p5.CENTER)
   p5.textSize(20)
 
-  // 检查 URL 是否包含 debug 参数
+  // 检查 URL 参数
   if (typeof window !== 'undefined') {
     const urlParams = new URLSearchParams(window.location.search)
     debugMode = urlParams.has('debug')
+    emojiMode = urlParams.has('emoji')
   }
 
   // 创建 Matter.js 引擎
@@ -737,8 +750,14 @@ function draw(p5: P5CanvasInstance) {
     const fontSize = radius * 1.5
     p5.textSize(fontSize)
 
-    // "人"字随球体旋转
-    p5.text('人', 0, 0)
+    // 根据模式显示emoji或"人"字
+    if (emojiMode) {
+      const emoji = ballEmojis.get(ball) || '😅'
+      p5.text(emoji, 0, 0)
+    } else {
+      // "人"字随球体旋转
+      p5.text('人', 0, 0)
+    }
     p5.pop()
   })
   p5.pop()

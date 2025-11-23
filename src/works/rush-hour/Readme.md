@@ -85,7 +85,9 @@ Matter.js 使用 `poly-decomp` 将凹多边形自动分解为多个凸多边形�
 - `BALL_MIN_RADIUS` / `BALL_MAX_RADIUS`: 球体半径范围
 - `BALL_SPAWN_INTERVAL`: 球体生成间隔（毫秒）
 
-## Debug 模式
+## 特殊模式
+
+### Debug 模式
 
 在 URL 中添加 `?debug` 参数可以启用调试模式，例如：`/work/rush-hour?debug`
 
@@ -102,4 +104,14 @@ Debug 模式下会显示：
   - 红色圆点标记活动板的初始位置
 
 这对于理解物理仿真中球体的旋转状态、凹多边形分解过程以及活动板的运动轨迹非常有用。
+
+### Emoji 模式
+
+在 URL 中添加 `?emoji` 参数可以启用 Emoji 模式，例如：`/work/rush-hour?emoji`
+
+Emoji 模式下：
+- 球体会显示为随机的 emoji 表情，而不是"人"字
+- 每个球体生成时会从预设的 12 个表情中随机选择一个
+- 表情会随着球体一起旋转和翻滚
+- 可以同时启用多个模式，如：`/work/rush-hour?debug&emoji`
 
