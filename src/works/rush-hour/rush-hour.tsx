@@ -34,7 +34,7 @@ let funnelOutlineVertices: Array<Array<{ x: number, y: number }>> = []
 let nextBallTime = 0
 
 // 漏斗配置
-const FUNNEL_PATHS = ['M1 1Q48 33 8 40L1 1', 'M57 1Q10 33 50 40L57 1']
+const FUNNEL_PATHS = ['M1 1Q48 33 8 40L1 1', 'M63 1Q16 33 56 40L63 1']
 const FUNNEL_WIDTH = 400 // 漏斗顶部宽度
 const FUNNEL_HEIGHT = 300 // 漏斗高度
 const FUNNEL_TOP_Y = 50 // 漏斗顶部Y坐标
@@ -127,8 +127,16 @@ function createFunnel(p5: P5CanvasInstance): Matter.Body[] {
 
     funnels.push(funnel)
 
-    // 保存外轮廓顶点（直接使用世界坐标）
-    funnelOutlineVertices.push(worldVertices)
+    // 调试：检查刚体的实际顶点
+    if (debugMode) {
+      console.log('worldVertices count:', worldVertices.length)
+      console.log('funnel.vertices count:', funnel.vertices.length)
+      console.log('worldCentroid:', worldCentroid)
+      console.log('funnel.position:', funnel.position)
+    }
+
+    // 保存外轮廓顶点（使用刚体的实际顶点，确保完全一致）
+    funnelOutlineVertices.push(funnel.vertices.map(v => ({ x: v.x, y: v.y })))
   })
 
   return funnels
