@@ -302,21 +302,20 @@ function cleanupBalls(p5: P5CanvasInstance) {
 function updateTrapDoors(p5: P5CanvasInstance) {
   const currentTime = p5.millis()
 
-  trapDoors.forEach((door, index) => {
-    // 每个活动板有不同的打开时机（错开）
-    const offset = (index * TRAP_DOOR_OPEN_INTERVAL) / TRAP_DOOR_COUNT
-    const cycleTime = (currentTime + offset) % TRAP_DOOR_OPEN_INTERVAL
+  // 所有活动板使用相同的周期时间（同时打开和关闭）
+  const cycleTime = currentTime % TRAP_DOOR_OPEN_INTERVAL
 
-    let targetOffset = 0
-    if (cycleTime < TRAP_DOOR_OPEN_DURATION) {
-      // 打开状态：向左滑动
-      door.isOpen = true
-      targetOffset = -TRAP_DOOR_SLIDE_DISTANCE
-    } else {
-      // 关闭状态：回到初始位置
-      door.isOpen = false
-      targetOffset = 0
-    }
+  let targetOffset = 0
+  if (cycleTime < TRAP_DOOR_OPEN_DURATION) {
+    // 打开状态：向左滑动
+    targetOffset = -TRAP_DOOR_SLIDE_DISTANCE
+  } else {
+    // 关闭状态：回到初始位置
+    targetOffset = 0
+  }
+
+  trapDoors.forEach((door) => {
+    door.isOpen = cycleTime < TRAP_DOOR_OPEN_DURATION
 
     // 平滑插值到目标偏移
     const offsetDiff = targetOffset - door.currentOffset
