@@ -13,7 +13,6 @@ const Runner = Matter.Runner
 const Bodies = Matter.Bodies
 const Composite = Matter.Composite
 const Svg = Matter.Svg
-const Body = Matter.Body
 
 Matter.Common.setDecomp(decomp)
 
@@ -35,7 +34,7 @@ let funnelOutlineVertices: Array<Array<{ x: number, y: number }>> = []
 let nextBallTime = 0
 
 // 漏斗配置
-const FUNNEL_PATHS = ['M1 1Q48 33 8 40L1 1']
+const FUNNEL_PATHS = ['M1 1Q48 33 8 40L1 1', 'M57 1Q10 33 50 40L57 1']
 const FUNNEL_WIDTH = 400 // 漏斗顶部宽度
 const FUNNEL_HEIGHT = 300 // 漏斗高度
 const FUNNEL_TOP_Y = 50 // 漏斗顶部Y坐标
@@ -81,52 +80,58 @@ function createFunnel(p5: P5CanvasInstance): Matter.Body[] {
   // 从 DOM 中移除临时 SVG
   document.body.removeChild(svg)
 
-  // 使用顶点创建静态刚体
-  // flagInternal 参数设为 true 会自动将凹多边形分解为多个凸多边形
-  const scaleFactor = 5 // 放大路径
-  const funnel = Bodies.fromVertices(
-    centerX,
-    topY + FUNNEL_HEIGHT / 2,
-    vertices,
-    {
-      isStatic: true,
-      friction: 0.5,
-      render: {
-        fillStyle: '#ffffff',
-        strokeStyle: '#000000',
-        lineWidth: 2
-      }
-    },
-    true, // flagInternal - 自动调整位置
-    0.01, // removeCollinear threshold
-    0.01 // minimumArea threshold
-  )
+  const scaleFactor = 10 // 放大路径
 
-  // 缩放刚体以匹配设计尺寸
-  Body.scale(funnel, scaleFactor, scaleFactor)
+  // 计算所有顶点的全局质心
+  const allVertices = vertices.flat()
+  const globalCentroid = {
+    x: allVertices.reduce((sum, v) => sum + v.x, 0) / allVertices.length,
+    y: allVertices.reduce((sum, v) => sum + v.y, 0) / allVertices.length
+  }
 
-  // 计算每个路径的外轮廓顶点
-  funnelOutlineVertices = vertices.map((pathVertices) => {
-    // 计算该路径顶点的质心
-    const pathCentroid = {
-      x: pathVertices.reduce((sum, v) => sum + v.x, 0) / pathVertices.length,
-      y: pathVertices.reduce((sum, v) => sum + v.y, 0) / pathVertices.length
+  // 为每个路径创建独立的刚体
+  const funnels: Matter.Body[] = []
+  funnelOutlineVertices = []
+
+  vertices.forEach((pathVertices) => {
+    // 直接计算世界坐标的顶点（用于渲染和物理）
+    const worldVertices = pathVertices.map(v => ({
+      x: centerX + (v.x - globalCentroid.x) * scaleFactor,
+      y: topY + FUNNEL_HEIGHT / 2 + (v.y - globalCentroid.y) * scaleFactor
+    }))
+
+    // 计算这些世界坐标顶点的质心
+    const worldCentroid = {
+      x: worldVertices.reduce((sum, v) => sum + v.x, 0) / worldVertices.length,
+      y: worldVertices.reduce((sum, v) => sum + v.y, 0) / worldVertices.length
     }
 
-    // 计算缩放后的外轮廓顶点（相对于刚体的最终位置）
-    return pathVertices.map((v) => {
-      // 相对于路径质心的偏移
-      const offsetX = v.x - pathCentroid.x
-      const offsetY = v.y - pathCentroid.y
-      // 缩放后相对于刚体位置的世界坐标
-      return {
-        x: funnel.position.x + offsetX * scaleFactor,
-        y: funnel.position.y + offsetY * scaleFactor
-      }
-    })
+    // 直接使用世界坐标顶点创建刚体，质心位置也用世界坐标
+    const funnel = Bodies.fromVertices(
+      worldCentroid.x,
+      worldCentroid.y,
+      [worldVertices],
+      {
+        isStatic: true,
+        friction: 0.5,
+        render: {
+          fillStyle: '#ffffff',
+          strokeStyle: '#000000',
+          lineWidth: 2
+        }
+      },
+      false, // flagInternal 设为 false，不让 Matter.js 自动调整位置
+      0.01, // removeCollinear threshold
+      0.01 // minimumArea threshold
+    )
+
+    funnels.push(funnel)
+
+    // 保存外轮廓顶点（直接使用世界坐标）
+    funnelOutlineVertices.push(worldVertices)
   })
 
-  return [funnel]
+  return funnels
 }
 
 // 创建带空缺的地面
@@ -258,9 +263,9 @@ function draw(p5: P5CanvasInstance) {
     }
 
     // Debug 模式：显示分解后的各个凸多边形部分（绘制在外轮廓之上）
-    if (debugMode && body.parts && body.parts.length > 1) {
+    if (debugMode && body.parts && body.parts.length > 0) {
       // 跳过第一个 part（它是父刚体本身）
-      for (let i = 1; i < body.parts.length; i++) {
+      for (let i = 0; i < body.parts.length; i++) {
         const part = body.parts[i]
         p5.push()
         const hue = (i * 360 / body.parts.length) % 360
