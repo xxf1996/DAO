@@ -27,6 +27,8 @@ let balls: Matter.Body[] = []
 // 地形刚体
 let funnelBodies: Matter.Body[] = []
 let groundBodies: Matter.Body[] = []
+let trapDoors: Array<{ body: Matter.Body, isOpen: boolean, initialX: number, currentOffset: number, width: number }> = []
+let sideWalls: Matter.Body[] = []
 // 保存漏斗的原始顶点用于渲染外轮廓（每个路径一个数组）
 let funnelOutlineVertices: Array<Array<{ x: number, y: number }>> = []
 
@@ -41,9 +43,14 @@ const FUNNEL_TOP_Y = 50 // 漏斗顶部Y坐标
 
 // 地面配置
 const GROUND_Y = FUNNEL_TOP_Y + FUNNEL_HEIGHT + 150 // 地面Y坐标
-const GROUND_SEGMENT_WIDTH = 120 // 地面每段宽度
-const GROUND_GAP_WIDTH = 80 // 地面空缺宽度
-const GROUND_THICKNESS = 20 // 地面厚度
+const GROUND_WIDTH_RATIO = 0.9 // 地面宽度占屏幕宽度的比例
+const GROUND_THICKNESS = 10 // 地面厚度
+const TRAP_DOOR_COUNT = 8 // 活动板数量
+const TRAP_DOOR_WIDTH_RATIO = 0.4 // 活动板宽度比例（相对于之前的分配宽度）
+const TRAP_DOOR_OPEN_INTERVAL = 2000 // 活动板打开间隔（毫秒）
+const TRAP_DOOR_OPEN_DURATION = 1000 // 活动板打开持续时间（毫秒）
+const TRAP_DOOR_SLIDE_DISTANCE = 50 // 活动板向左滑动距离（像素）
+const SIDE_WALL_HEIGHT = 200 // 两侧挡板高度
 
 // 球体配置
 const BALL_MIN_RADIUS = 6
@@ -142,31 +149,120 @@ function createFunnel(p5: P5CanvasInstance): Matter.Body[] {
   return funnels
 }
 
-// 创建带空缺的地面
-function createGround(p5: P5CanvasInstance): Matter.Body[] {
+// 创建地面系统（固定地面 + 活动板 + 两侧挡板）
+function createGround(p5: P5CanvasInstance): {
+  grounds: Matter.Body[]
+  trapDoors: Array<{ body: Matter.Body, isOpen: boolean, initialX: number, currentOffset: number, width: number }>
+  sideWalls: Matter.Body[]
+} {
+  const centerX = p5.width / 2
+  const groundWidth = p5.width * GROUND_WIDTH_RATIO
+  const startX = centerX - groundWidth / 2
+  const endX = centerX + groundWidth / 2
+
+  // 计算活动板的位置（均匀分布）
+  const spacing = groundWidth / (TRAP_DOOR_COUNT + 1)
+  const trapDoorWidth = spacing * TRAP_DOOR_WIDTH_RATIO // 活动板宽度变小
+  const trapDoorPositions: number[] = []
+  for (let i = 1; i <= TRAP_DOOR_COUNT; i++) {
+    trapDoorPositions.push(startX + spacing * i)
+  }
+
+  // 创建固定地面段（在活动板之间和两端）
   const grounds: Matter.Body[] = []
-  const totalWidth = p5.width
-  const segmentCount = Math.ceil(totalWidth / (GROUND_SEGMENT_WIDTH + GROUND_GAP_WIDTH))
+  let currentX = startX
 
-  // 从左到右创建地面段
-  for (let i = 0; i < segmentCount; i++) {
-    const x = i * (GROUND_SEGMENT_WIDTH + GROUND_GAP_WIDTH) + GROUND_SEGMENT_WIDTH / 2
+  trapDoorPositions.forEach((doorX) => {
+    // 活动板左侧的固定地面
+    const segmentWidth = doorX - currentX - trapDoorWidth / 2
+    if (segmentWidth > 5) {
+      const segmentCenterX = currentX + segmentWidth / 2
+      const ground = Bodies.rectangle(
+        segmentCenterX,
+        GROUND_Y,
+        segmentWidth,
+        GROUND_THICKNESS,
+        {
+          isStatic: true,
+          friction: 0.5
+        }
+      )
+      grounds.push(ground)
+    }
+    currentX = doorX + trapDoorWidth / 2
+  })
 
+  // 最后一段固定地面
+  const lastSegmentWidth = endX - currentX
+  if (lastSegmentWidth > 5) {
+    const segmentCenterX = currentX + lastSegmentWidth / 2
     const ground = Bodies.rectangle(
-      x,
+      segmentCenterX,
       GROUND_Y,
-      GROUND_SEGMENT_WIDTH,
+      lastSegmentWidth,
       GROUND_THICKNESS,
       {
         isStatic: true,
         friction: 0.5
       }
     )
-
     grounds.push(ground)
   }
 
-  return grounds
+  // 创建活动板（简单的矩形，定时水平移动）
+  const doors: Array<{ body: Matter.Body, isOpen: boolean, initialX: number, currentOffset: number, width: number }> = []
+
+  trapDoorPositions.forEach((doorX) => {
+    const door = Bodies.rectangle(
+      doorX,
+      GROUND_Y,
+      trapDoorWidth,
+      GROUND_THICKNESS,
+      {
+        isStatic: true, // 设为静态，我们会手动控制位置
+        friction: 0.5
+      }
+    )
+
+    doors.push({
+      body: door,
+      isOpen: false,
+      initialX: doorX,
+      currentOffset: 0,
+      width: trapDoorWidth
+    })
+  })
+
+  // 创建两侧挡板
+  const walls: Matter.Body[] = []
+
+  // 左侧挡板
+  const leftWall = Bodies.rectangle(
+    startX - GROUND_THICKNESS / 2,
+    GROUND_Y - SIDE_WALL_HEIGHT / 2,
+    GROUND_THICKNESS,
+    SIDE_WALL_HEIGHT,
+    {
+      isStatic: true,
+      friction: 0.5
+    }
+  )
+  walls.push(leftWall)
+
+  // 右侧挡板
+  const rightWall = Bodies.rectangle(
+    endX + GROUND_THICKNESS / 2,
+    GROUND_Y - SIDE_WALL_HEIGHT / 2,
+    GROUND_THICKNESS,
+    SIDE_WALL_HEIGHT,
+    {
+      isStatic: true,
+      friction: 0.5
+    }
+  )
+  walls.push(rightWall)
+
+  return { grounds, trapDoors: doors, sideWalls: walls }
 }
 
 function randomSign() {
@@ -202,6 +298,38 @@ function cleanupBalls(p5: P5CanvasInstance) {
   })
 }
 
+// 更新活动板状态（水平滑动打开）
+function updateTrapDoors(p5: P5CanvasInstance) {
+  const currentTime = p5.millis()
+
+  trapDoors.forEach((door, index) => {
+    // 每个活动板有不同的打开时机（错开）
+    const offset = (index * TRAP_DOOR_OPEN_INTERVAL) / TRAP_DOOR_COUNT
+    const cycleTime = (currentTime + offset) % TRAP_DOOR_OPEN_INTERVAL
+
+    let targetOffset = 0
+    if (cycleTime < TRAP_DOOR_OPEN_DURATION) {
+      // 打开状态：向左滑动
+      door.isOpen = true
+      targetOffset = -TRAP_DOOR_SLIDE_DISTANCE
+    } else {
+      // 关闭状态：回到初始位置
+      door.isOpen = false
+      targetOffset = 0
+    }
+
+    // 平滑插值到目标偏移
+    const offsetDiff = targetOffset - door.currentOffset
+    door.currentOffset += offsetDiff * 0.1 // 平滑系数
+
+    // 设置新位置（水平移动）
+    Matter.Body.setPosition(door.body, {
+      x: door.initialX + door.currentOffset,
+      y: GROUND_Y
+    })
+  })
+}
+
 function setup(p5: P5CanvasInstance) {
   p5.createCanvas(window.innerWidth, window.innerHeight)
   p5.textAlign(p5.CENTER, p5.CENTER)
@@ -224,9 +352,15 @@ function setup(p5: P5CanvasInstance) {
   funnelBodies = createFunnel(p5)
   funnelBodies.forEach(body => Composite.add(world, body))
 
-  // 创建地面
-  groundBodies = createGround(p5)
+  // 创建地面系统
+  const groundSystem = createGround(p5)
+  groundBodies = groundSystem.grounds
+  trapDoors = groundSystem.trapDoors
+  sideWalls = groundSystem.sideWalls
+
   groundBodies.forEach(body => Composite.add(world, body))
+  trapDoors.forEach(door => Composite.add(world, door.body))
+  sideWalls.forEach(wall => Composite.add(world, wall))
 
   // 创建 Runner
   runner = Runner.create()
@@ -250,6 +384,9 @@ function draw(p5: P5CanvasInstance) {
 
   // 清理离开屏幕的球体
   cleanupBalls(p5)
+
+  // 更新活动板状态
+  updateTrapDoors(p5)
 
   // 渲染漏斗
   p5.push()
@@ -307,22 +444,77 @@ function draw(p5: P5CanvasInstance) {
   })
   p5.pop()
 
-  // 渲染地面
+  // 渲染固定地面段
   p5.push()
   p5.stroke(0)
   p5.strokeWeight(2)
   p5.fill(255)
 
-  groundBodies.forEach((body) => {
+  groundBodies.forEach((ground) => {
     p5.push()
-    p5.translate(body.position.x, body.position.y)
-    p5.rotate(body.angle)
+    p5.translate(ground.position.x, ground.position.y)
+    p5.rotate(ground.angle)
 
-    const vertices = body.vertices
+    const vertices = ground.vertices
     p5.beginShape()
     vertices.forEach((vertex) => {
-      const localX = vertex.x - body.position.x
-      const localY = vertex.y - body.position.y
+      const localX = vertex.x - ground.position.x
+      const localY = vertex.y - ground.position.y
+      p5.vertex(localX, localY)
+    })
+    p5.endShape(p5.CLOSE)
+    p5.pop()
+  })
+  p5.pop()
+
+  // 渲染活动板
+  p5.push()
+  p5.stroke(0)
+  p5.strokeWeight(2)
+  p5.fill(255)
+
+  trapDoors.forEach((door) => {
+    p5.push()
+    p5.translate(door.body.position.x, door.body.position.y)
+    p5.rotate(door.body.angle)
+
+    const vertices = door.body.vertices
+    p5.beginShape()
+    vertices.forEach((vertex) => {
+      const localX = vertex.x - door.body.position.x
+      const localY = vertex.y - door.body.position.y
+      p5.vertex(localX, localY)
+    })
+    p5.endShape(p5.CLOSE)
+    p5.pop()
+
+    // Debug 模式：绘制初始位置标记点
+    if (debugMode) {
+      p5.push()
+      p5.fill(255, 0, 0)
+      p5.noStroke()
+      p5.circle(door.initialX, GROUND_Y, 5)
+      p5.pop()
+    }
+  })
+  p5.pop()
+
+  // 渲染两侧挡板
+  p5.push()
+  p5.stroke(0)
+  p5.strokeWeight(2)
+  p5.fill(255)
+
+  sideWalls.forEach((wall) => {
+    p5.push()
+    p5.translate(wall.position.x, wall.position.y)
+    p5.rotate(wall.angle)
+
+    const vertices = wall.vertices
+    p5.beginShape()
+    vertices.forEach((vertex) => {
+      const localX = vertex.x - wall.position.x
+      const localY = vertex.y - wall.position.y
       p5.vertex(localX, localY)
     })
     p5.endShape(p5.CLOSE)
