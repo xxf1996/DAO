@@ -80,7 +80,7 @@ function createFunnel(p5: P5CanvasInstance): Matter.Body[] {
 
   // 使用顶点创建静态刚体
   // flagInternal 参数设为 true 会自动将凹多边形分解为多个凸多边形
-  const scaleFactor = 3 // 放大路径
+  const scaleFactor = 10 // 放大路径
   const funnel = Bodies.fromVertices(
     centerX,
     topY + FUNNEL_HEIGHT / 2,
@@ -99,20 +99,26 @@ function createFunnel(p5: P5CanvasInstance): Matter.Body[] {
     0.01 // minimumArea threshold
   )
 
+  // 先计算原始顶点的质心（用于缩放中心）
+  const originalCentroid = {
+    x: vertices.reduce((sum, v) => sum + v.x, 0) / vertices.length,
+    y: vertices.reduce((sum, v) => sum + v.y, 0) / vertices.length
+  }
+
   // 缩放刚体以匹配设计尺寸
   Body.scale(funnel, scaleFactor, scaleFactor)
 
-  // 保存原始顶点的缩放版本用于渲染外轮廓
-  // 需要考虑刚体的位置偏移
-  const centerOffset = {
-    x: funnel.position.x - centerX,
-    y: funnel.position.y - (topY + FUNNEL_HEIGHT / 2)
-  }
-
-  funnelOutlineVertices = vertices.map(v => ({
-    x: centerX + centerOffset.x + (v.x - vertices[0].x) * scaleFactor,
-    y: topY + FUNNEL_HEIGHT / 2 + centerOffset.y + (v.y - vertices[0].y) * scaleFactor
-  }))
+  // 计算缩放后的外轮廓顶点（相对于刚体的最终位置）
+  funnelOutlineVertices = vertices.map((v) => {
+    // 相对于原始质心的偏移
+    const offsetX = v.x - originalCentroid.x
+    const offsetY = v.y - originalCentroid.y
+    // 缩放后相对于刚体位置的世界坐标
+    return {
+      x: funnel.position.x + offsetX * scaleFactor,
+      y: funnel.position.y + offsetY * scaleFactor
+    }
+  })
 
   return [funnel]
 }
@@ -229,7 +235,21 @@ function draw(p5: P5CanvasInstance) {
   p5.noFill()
 
   funnelBodies.forEach((body) => {
-    // Debug 模式：显示分解后的各个凸多边形部分
+    // 绘制外轮廓（使用保存的原始顶点）
+    if (funnelOutlineVertices.length > 0) {
+      p5.push()
+      p5.stroke(0)
+      p5.strokeWeight(2)
+      p5.noFill()
+      p5.beginShape()
+      funnelOutlineVertices.forEach((vertex) => {
+        p5.vertex(vertex.x, vertex.y)
+      })
+      p5.endShape(p5.CLOSE)
+      p5.pop()
+    }
+
+    // Debug 模式：显示分解后的各个凸多边形部分（绘制在外轮廓之上）
     if (debugMode && body.parts && body.parts.length > 1) {
       // 跳过第一个 part（它是父刚体本身）
       for (let i = 1; i < body.parts.length; i++) {
@@ -247,19 +267,14 @@ function draw(p5: P5CanvasInstance) {
         p5.endShape(p5.CLOSE)
         p5.pop()
       }
-    }
 
-    // 绘制外轮廓（使用保存的原始顶点）
-    if (funnelOutlineVertices.length > 0) {
+      // Debug: 绘制原始外轮廓的顶点标记
       p5.push()
-      p5.stroke(0)
-      p5.strokeWeight(2)
-      p5.noFill()
-      p5.beginShape()
+      p5.fill(255, 0, 0)
+      p5.noStroke()
       funnelOutlineVertices.forEach((vertex) => {
-        p5.vertex(vertex.x, vertex.y)
+        p5.circle(vertex.x, vertex.y, 3)
       })
-      p5.endShape(p5.CLOSE)
       p5.pop()
     }
   })
