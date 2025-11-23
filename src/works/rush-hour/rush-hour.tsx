@@ -32,6 +32,10 @@ let sideWalls: Matter.Body[] = []
 // 保存漏斗的原始顶点用于渲染外轮廓（每个路径一个数组）
 let funnelOutlineVertices: Array<Array<{ x: number, y: number }>> = []
 
+// 传送带刚体
+let conveyorWheels: Matter.Body[] = []
+let conveyorBelt: Matter.Body | null = null
+
 // 生成球体的计时器
 let nextBallTime = 0
 
@@ -51,6 +55,11 @@ const TRAP_DOOR_OPEN_INTERVAL = 15000 // 活动板打开间隔（毫秒）
 const TRAP_DOOR_OPEN_DURATION = 5000 // 活动板打开持续时间（毫秒）
 const TRAP_DOOR_SLIDE_DISTANCE = 50 // 活动板向左滑动距离（像素）
 const SIDE_WALL_HEIGHT = 200 // 两侧挡板高度
+
+// 传送带配置
+const CONVEYOR_Y_OFFSET = 100 // 传送带相对地面的Y轴偏移
+const CONVEYOR_WHEEL_RADIUS = 15 // 滚轮半径
+const CONVEYOR_SPEED = 0.001 // 传送带旋转速度（弧度/帧）
 
 // 球体配置
 const BALL_MIN_RADIUS = 6
@@ -265,6 +274,53 @@ function createGround(p5: P5CanvasInstance): {
   return { grounds, trapDoors: doors, sideWalls: walls }
 }
 
+// 创建传送带系统（两个滚轮 + 传送带平面）
+function createConveyor(p5: P5CanvasInstance): {
+  wheels: Matter.Body[]
+  belt: Matter.Body
+} {
+  const centerX = p5.width / 2
+  const groundWidth = p5.width * GROUND_WIDTH_RATIO
+  const conveyorY = GROUND_Y + CONVEYOR_Y_OFFSET
+
+  const leftWheelX = centerX - groundWidth / 2
+  const rightWheelX = centerX + groundWidth / 2
+
+  // 创建左侧滚轮（静态刚体，我们会手动控制旋转动画）
+  const leftWheel = Bodies.circle(leftWheelX, conveyorY, CONVEYOR_WHEEL_RADIUS, {
+    isStatic: true,
+    friction: 1,
+    frictionStatic: 1
+  })
+
+  // 创建右侧滚轮
+  const rightWheel = Bodies.circle(rightWheelX, conveyorY, CONVEYOR_WHEEL_RADIUS, {
+    isStatic: true,
+    friction: 1,
+    frictionStatic: 1
+  })
+
+  // 创建传送带平面（静态矩形，位于两个滚轮顶部）
+  const beltWidth = groundWidth
+  const beltHeight = 5
+  const belt = Bodies.rectangle(
+    centerX,
+    conveyorY - CONVEYOR_WHEEL_RADIUS - beltHeight / 2,
+    beltWidth,
+    beltHeight,
+    {
+      isStatic: true,
+      friction: 2, // 高摩擦力，模拟传送带效果
+      frictionStatic: 2
+    }
+  )
+
+  return {
+    wheels: [leftWheel, rightWheel],
+    belt
+  }
+}
+
 function randomSign() {
   return Math.random() > 0.5 ? 1 : -1
 }
@@ -329,6 +385,76 @@ function updateTrapDoors(p5: P5CanvasInstance) {
   })
 }
 
+// 渲染传送带（极简风格：两个滚轮+传送带轮廓线）
+function renderConveyor(p5: P5CanvasInstance) {
+  if (conveyorWheels.length < 2 || !conveyorBelt) return
+
+  const centerX = p5.width / 2
+  const groundWidth = p5.width * GROUND_WIDTH_RATIO
+  const conveyorY = GROUND_Y + CONVEYOR_Y_OFFSET
+
+  p5.push()
+  p5.stroke(0)
+  p5.strokeWeight(2)
+  p5.noFill()
+
+  // 绘制左侧滚轮（使用物理刚体的实际位置和旋转）
+  const leftWheel = conveyorWheels[0]
+  p5.push()
+  p5.translate(leftWheel.position.x, leftWheel.position.y)
+  p5.circle(0, 0, CONVEYOR_WHEEL_RADIUS * 2)
+
+  // 绘制左轮的轮辐（显示旋转效果）
+  p5.push()
+  p5.strokeWeight(1)
+  p5.rotate(leftWheel.angle)
+  for (let i = 0; i < 4; i++) {
+    const angle = (Math.PI / 2) * i
+    const x1 = Math.cos(angle) * CONVEYOR_WHEEL_RADIUS * 0.3
+    const y1 = Math.sin(angle) * CONVEYOR_WHEEL_RADIUS * 0.3
+    const x2 = Math.cos(angle) * CONVEYOR_WHEEL_RADIUS * 0.8
+    const y2 = Math.sin(angle) * CONVEYOR_WHEEL_RADIUS * 0.8
+    p5.line(x1, y1, x2, y2)
+  }
+  p5.pop()
+  p5.pop()
+
+  // 绘制右侧滚轮
+  const rightWheel = conveyorWheels[1]
+  p5.push()
+  p5.translate(rightWheel.position.x, rightWheel.position.y)
+  p5.circle(0, 0, CONVEYOR_WHEEL_RADIUS * 2)
+
+  // 绘制右轮的轮辐
+  p5.push()
+  p5.strokeWeight(1)
+  p5.rotate(rightWheel.angle)
+  for (let i = 0; i < 4; i++) {
+    const angle = (Math.PI / 2) * i
+    const x1 = Math.cos(angle) * CONVEYOR_WHEEL_RADIUS * 0.3
+    const y1 = Math.sin(angle) * CONVEYOR_WHEEL_RADIUS * 0.3
+    const x2 = Math.cos(angle) * CONVEYOR_WHEEL_RADIUS * 0.8
+    const y2 = Math.sin(angle) * CONVEYOR_WHEEL_RADIUS * 0.8
+    p5.line(x1, y1, x2, y2)
+  }
+  p5.pop()
+  p5.pop()
+
+  // 绘制传送带外轮廓（上边线+下边线）
+  const leftWheelX = centerX - groundWidth / 2
+  const rightWheelX = centerX + groundWidth / 2
+  const topY = conveyorY - CONVEYOR_WHEEL_RADIUS
+  const bottomY = conveyorY + CONVEYOR_WHEEL_RADIUS
+
+  p5.strokeWeight(2)
+  // 上边线（传送带顶部）
+  p5.line(leftWheelX, topY, rightWheelX, topY)
+  // 下边线
+  p5.line(leftWheelX, bottomY, rightWheelX, bottomY)
+
+  p5.pop()
+}
+
 function setup(p5: P5CanvasInstance) {
   p5.createCanvas(window.innerWidth, window.innerHeight)
   p5.textAlign(p5.CENTER, p5.CENTER)
@@ -361,6 +487,14 @@ function setup(p5: P5CanvasInstance) {
   trapDoors.forEach(door => Composite.add(world, door.body))
   sideWalls.forEach(wall => Composite.add(world, wall))
 
+  // 创建传送带系统
+  const conveyorSystem = createConveyor(p5)
+  conveyorWheels = conveyorSystem.wheels
+  conveyorBelt = conveyorSystem.belt
+
+  conveyorWheels.forEach(wheel => Composite.add(world, wheel))
+  Composite.add(world, conveyorBelt)
+
   // 创建 Runner
   runner = Runner.create()
   Runner.run(runner, engine)
@@ -386,6 +520,39 @@ function draw(p5: P5CanvasInstance) {
 
   // 更新活动板状态
   updateTrapDoors(p5)
+
+  // 更新传送带物理效果
+  // 手动旋转滚轮（仅用于视觉效果，不影响物理）
+  conveyorWheels.forEach((wheel) => {
+    // 手动设置角度（逆时针旋转）
+    Matter.Body.setAngle(wheel, wheel.angle - CONVEYOR_SPEED)
+  })
+
+  // 给接触传送带的球体施加向左的力（模拟传送带效果）
+  if (conveyorBelt) {
+    const belt = conveyorBelt
+    const conveyorForce = 0.0005 // 向左的力
+    balls.forEach((ball) => {
+      // 检查球体是否在传送带附近
+      const beltTop = belt.position.y - 3
+      const beltBottom = belt.position.y + 3
+      const centerX = p5.width / 2
+      const groundWidth = p5.width * GROUND_WIDTH_RATIO
+      const beltLeft = centerX - groundWidth / 2
+      const beltRight = centerX + groundWidth / 2
+
+      // 如果球体在传送带上
+      if (
+        ball.position.y >= beltTop - ball.circleRadius!
+        && ball.position.y <= beltBottom + ball.circleRadius!
+        && ball.position.x >= beltLeft
+        && ball.position.x <= beltRight
+      ) {
+        // 施加向左的力
+        Matter.Body.applyForce(ball, ball.position, { x: -conveyorForce, y: 0 })
+      }
+    })
+  }
 
   // 渲染漏斗
   p5.push()
@@ -504,6 +671,9 @@ function draw(p5: P5CanvasInstance) {
     p5.pop()
   })
   p5.pop()
+
+  // 渲染传送带
+  renderConveyor(p5)
 
   // 渲染球体（显示为"人"字）
   p5.push()
