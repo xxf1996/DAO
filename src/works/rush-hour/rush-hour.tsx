@@ -237,6 +237,8 @@ function draw(p5: P5CanvasInstance) {
   balls.forEach((ball) => {
     p5.push()
     p5.translate(ball.position.x, ball.position.y)
+    // 让"人"字跟随球体旋转
+    p5.rotate(ball.angle)
 
     // Debug 模式：显示球体边框和方向向量（姿态/旋转）
     if (debugMode) {
@@ -255,30 +257,30 @@ function draw(p5: P5CanvasInstance) {
       p5.push()
       p5.stroke(255, 0, 0) // 红色
       p5.strokeWeight(2)
-      // 使用球体的角度（angle 属性）来显示方向
-      const endX = Math.cos(ball.angle) * radius
-      const endY = Math.sin(ball.angle) * radius
-      p5.line(0, 0, endX, endY)
+      // 方向向量指向右侧（0度方向）
+      const radius2 = radius
+      p5.line(0, 0, radius2, 0)
 
       // 在方向向量末端绘制一个小圆点
       p5.fill(255, 0, 0)
       p5.noStroke()
-      p5.circle(endX, endY, 4)
+      p5.circle(radius2, 0, 4)
       p5.pop()
 
-      // 显示角度和角速度信息
+      // 显示角度和角速度信息（文字不旋转，保持直立）
       p5.push()
+      p5.rotate(-ball.angle) // 反向旋转，让文字保持直立
       p5.fill(0)
       p5.noStroke()
       p5.textSize(10)
       const angleDegrees = (ball.angle * 180 / Math.PI).toFixed(0)
       const angularVelocity = ball.angularVelocity.toFixed(2)
-      p5.text(`角度: ${angleDegrees}°`, 0, radius + 15)
-      p5.text(`角速度: ${angularVelocity}`, 0, radius + 28)
+      p5.text(`角度: ${angleDegrees}°`, 0, radius2 + 15)
+      p5.text(`角速度: ${angularVelocity}`, 0, radius2 + 28)
       p5.pop()
     }
 
-    // 文字保持直立，不随球体旋转
+    // "人"字随球体旋转
     p5.text('人', 0, 0)
     p5.pop()
   })
