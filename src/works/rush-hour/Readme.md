@@ -7,12 +7,13 @@
 ## 技术实现
 
 - **物理引擎**: Matter.js - 处理所有的物理仿真，包括刚体运动、碰撞检测和重力效果
+- **SVG 路径转换**: 使用 Matter.js 的 `Svg.pathToVertices()` 将 SVG 路径转换为顶点数组，再通过 `Bodies.fromVertices()` 创建复杂的刚体形状（参考 [terrain.js 示例](https://github.com/liabru/matter-js/blob/master/examples/terrain.js)）
 - **渲染引擎**: p5.js - 通过 useP5 hook 实现极简风格的视觉呈现
 - **视觉风格**: 白色背景，黑色线条，极简主义设计
 
 ## 主要特性
 
-1. **漏斗地形**: 使用 Matter.js 创建的静态刚体，呈现漏斗状倾斜墙壁
+1. **漏斗地形**: 使用 SVG 路径通过 Matter.js 的 `Svg.pathToVertices` 和 `Bodies.fromVertices` 创建平滑的曲线刚体，呈现真实的漏斗形状
 2. **分段地面**: 横向地面被分割成多个段落，段落之间有固定间隔的空缺
 3. **动态球体**: 持续从漏斗顶部生成，大小在一定范围内随机变化
 4. **文字渲染**: 每个球体被渲染为"人"字，随球体旋转而旋转，象征人群在时代洪流中的翻滚
@@ -30,9 +31,9 @@
 
 可以通过修改代码中的常量来调整作品效果：
 
-- `FUNNEL_WIDTH`: 漏斗顶部宽度
-- `FUNNEL_HEIGHT`: 漏斗高度
-- `FUNNEL_BOTTOM_WIDTH`: 漏斗底部宽度
+- `FUNNEL_PATH`: SVG 路径字符串，定义漏斗的形状
+- `FUNNEL_WIDTH`: 漏斗参考宽度
+- `FUNNEL_HEIGHT`: 漏斗参考高度
 - `GROUND_SEGMENT_WIDTH`: 地面每段的宽度
 - `GROUND_GAP_WIDTH`: 地面空缺的宽度
 - `BALL_MIN_RADIUS` / `BALL_MAX_RADIUS`: 球体半径范围

@@ -3,12 +3,18 @@ import { useP5 } from '@/hooks/p5'
 import { ReactP5Wrapper, type P5CanvasInstance } from '@p5-wrapper/react'
 import { useEffect } from 'react'
 import Matter from 'matter-js'
+import './pathseg.js'
+import decomp from 'poly-decomp'
 
 // Matter.js 模块
 const Engine = Matter.Engine
 const Runner = Matter.Runner
 const Bodies = Matter.Bodies
 const Composite = Matter.Composite
+const Svg = Matter.Svg
+const Body = Matter.Body
+
+Matter.Common.setDecomp(decomp)
 
 // 物理引擎实例
 let engine: Matter.Engine
@@ -26,9 +32,9 @@ let groundBodies: Matter.Body[] = []
 let nextBallTime = 0
 
 // 漏斗配置
+const FUNNEL_PATH = 'M28 16Q54 2 58 38q-1 21 77-9 20 25 45 2 17-60 74 16-26 54-136 76Q20 78 28 16'
 const FUNNEL_WIDTH = 400 // 漏斗顶部宽度
 const FUNNEL_HEIGHT = 300 // 漏斗高度
-const FUNNEL_BOTTOM_WIDTH = 100 // 漏斗底部宽度
 const FUNNEL_TOP_Y = 50 // 漏斗顶部Y坐标
 
 // 地面配置
@@ -49,33 +55,50 @@ let debugMode = false
 function createFunnel(p5: P5CanvasInstance): Matter.Body[] {
   const centerX = p5.width / 2
   const topY = FUNNEL_TOP_Y
-  const bottomY = topY + FUNNEL_HEIGHT
 
-  // 左侧墙
-  const leftWall = Bodies.rectangle(
-    centerX - FUNNEL_WIDTH / 2 + FUNNEL_BOTTOM_WIDTH / 4,
-    (topY + bottomY) / 2,
-    10,
-    FUNNEL_HEIGHT,
+  // 创建临时 SVG 元素来解析路径
+  const svgNS = 'http://www.w3.org/2000/svg'
+  const svg = document.createElementNS(svgNS, 'svg')
+  const path = document.createElementNS(svgNS, 'path')
+
+  // 设置 SVG 路径
+  path.setAttribute('d', FUNNEL_PATH)
+  svg.appendChild(path)
+
+  // 临时添加到 DOM 中（pathToVertices 需要）
+  document.body.appendChild(svg)
+
+  // 将 SVG 路径转换为顶点数组
+  // 第二个参数是采样点数量，数值越大曲线越平滑
+  const vertices = Svg.pathToVertices(path, 1)
+  console.log(vertices)
+
+  // 从 DOM 中移除临时 SVG
+  document.body.removeChild(svg)
+
+  // 使用顶点创建静态刚体
+  // 需要缩放和定位漏斗
+  const scaleFactor = 1 // 放大路径
+  const funnel = Bodies.fromVertices(
+    centerX,
+    topY + FUNNEL_HEIGHT / 2,
+    [vertices],
     {
       isStatic: true,
-      angle: -Math.atan((FUNNEL_WIDTH - FUNNEL_BOTTOM_WIDTH) / 2 / FUNNEL_HEIGHT)
-    }
+      friction: 0.5,
+      render: {
+        fillStyle: '#ffffff',
+        strokeStyle: '#000000',
+        lineWidth: 2
+      }
+    },
+    true // flagInternal - 自动调整位置
   )
 
-  // 右侧墙
-  const rightWall = Bodies.rectangle(
-    centerX + FUNNEL_WIDTH / 2 - FUNNEL_BOTTOM_WIDTH / 4,
-    (topY + bottomY) / 2,
-    10,
-    FUNNEL_HEIGHT,
-    {
-      isStatic: true,
-      angle: Math.atan((FUNNEL_WIDTH - FUNNEL_BOTTOM_WIDTH) / 2 / FUNNEL_HEIGHT)
-    }
-  )
+  // 缩放刚体以匹配设计尺寸
+  Body.scale(funnel, scaleFactor, scaleFactor)
 
-  return [leftWall, rightWall]
+  return [funnel]
 }
 
 // 创建带空缺的地面
