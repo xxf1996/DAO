@@ -34,7 +34,7 @@ let funnelOutlineVertices: Array<Array<{ x: number, y: number }>> = []
 let nextBallTime = 0
 
 // 漏斗配置
-const FUNNEL_PATHS = ['M1 1Q48 33 8 40L1 1', 'M63 1Q16 33 56 40L63 1']
+const FUNNEL_PATHS = ['M1 1Q48 33 8 40L1 1', 'M61 1Q14 33 54 40L61 1']
 const FUNNEL_WIDTH = 400 // 漏斗顶部宽度
 const FUNNEL_HEIGHT = 300 // 漏斗高度
 const FUNNEL_TOP_Y = 50 // 漏斗顶部Y坐标
@@ -46,9 +46,9 @@ const GROUND_GAP_WIDTH = 80 // 地面空缺宽度
 const GROUND_THICKNESS = 20 // 地面厚度
 
 // 球体配置
-const BALL_MIN_RADIUS = 15
-const BALL_MAX_RADIUS = 25
-const BALL_SPAWN_INTERVAL = 800 // 生成间隔（毫秒）
+const BALL_MIN_RADIUS = 6
+const BALL_MAX_RADIUS = 15
+const BALL_SPAWN_INTERVAL = 100 // 生成间隔（毫秒）
 
 // Debug 模式
 let debugMode = false
@@ -169,10 +169,14 @@ function createGround(p5: P5CanvasInstance): Matter.Body[] {
   return grounds
 }
 
+function randomSign() {
+  return Math.random() > 0.5 ? 1 : -1
+}
+
 // 创建球体
 function createBall(p5: P5CanvasInstance): Matter.Body {
   const centerX = p5.width / 2
-  const x = centerX + p5.random(-FUNNEL_WIDTH / 3, FUNNEL_WIDTH / 3)
+  const x = centerX + p5.random(FUNNEL_WIDTH / 3, FUNNEL_WIDTH / 2) * randomSign()
   const y = FUNNEL_TOP_Y - 50
   const radius = p5.random(BALL_MIN_RADIUS, BALL_MAX_RADIUS)
 
