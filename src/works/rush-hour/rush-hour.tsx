@@ -42,7 +42,7 @@ const FUNNEL_HEIGHT = 300 // 漏斗高度
 const FUNNEL_TOP_Y = 50 // 漏斗顶部Y坐标
 
 // 地面配置
-const GROUND_Y = FUNNEL_TOP_Y + FUNNEL_HEIGHT + 150 // 地面Y坐标
+const GROUND_Y = FUNNEL_TOP_Y + FUNNEL_HEIGHT + 100 // 地面Y坐标
 const GROUND_WIDTH_RATIO = 0.9 // 地面宽度占屏幕宽度的比例
 const GROUND_THICKNESS = 10 // 地面厚度
 const TRAP_DOOR_COUNT = 8 // 活动板数量
@@ -444,49 +444,33 @@ function draw(p5: P5CanvasInstance) {
   })
   p5.pop()
 
-  // 渲染固定地面段
+  // 渲染固定地面段（只绘制顶部边缘线）
   p5.push()
   p5.stroke(0)
   p5.strokeWeight(2)
-  p5.fill(255)
 
   groundBodies.forEach((ground) => {
-    p5.push()
-    p5.translate(ground.position.x, ground.position.y)
-    p5.rotate(ground.angle)
-
-    const vertices = ground.vertices
-    p5.beginShape()
-    vertices.forEach((vertex) => {
-      const localX = vertex.x - ground.position.x
-      const localY = vertex.y - ground.position.y
-      p5.vertex(localX, localY)
-    })
-    p5.endShape(p5.CLOSE)
-    p5.pop()
+    // 获取矩形的左右边界
+    const halfWidth = (ground.bounds.max.x - ground.bounds.min.x) / 2
+    const leftX = ground.position.x - halfWidth
+    const rightX = ground.position.x + halfWidth
+    // 绘制顶部线条
+    p5.line(leftX, GROUND_Y, rightX, GROUND_Y)
   })
   p5.pop()
 
-  // 渲染活动板
+  // 渲染活动板（只绘制顶部边缘线）
   p5.push()
   p5.stroke(0)
   p5.strokeWeight(2)
-  p5.fill(255)
 
   trapDoors.forEach((door) => {
-    p5.push()
-    p5.translate(door.body.position.x, door.body.position.y)
-    p5.rotate(door.body.angle)
-
-    const vertices = door.body.vertices
-    p5.beginShape()
-    vertices.forEach((vertex) => {
-      const localX = vertex.x - door.body.position.x
-      const localY = vertex.y - door.body.position.y
-      p5.vertex(localX, localY)
-    })
-    p5.endShape(p5.CLOSE)
-    p5.pop()
+    // 获取矩形的左右边界
+    const halfWidth = door.width / 2
+    const leftX = door.body.position.x - halfWidth
+    const rightX = door.body.position.x + halfWidth
+    // 绘制顶部线条
+    p5.line(leftX, GROUND_Y, rightX, GROUND_Y)
 
     // Debug 模式：绘制初始位置标记点
     if (debugMode) {
