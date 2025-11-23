@@ -28,12 +28,14 @@ let balls: Matter.Body[] = []
 // 地形刚体
 let funnelBodies: Matter.Body[] = []
 let groundBodies: Matter.Body[] = []
+// 保存漏斗的原始顶点用于渲染外轮廓
+let funnelOutlineVertices: Array<{ x: number, y: number }> = []
 
 // 生成球体的计时器
 let nextBallTime = 0
 
 // 漏斗配置
-const FUNNEL_PATH = 'M28 16Q54 2 58 38q-1 21 77-9 20 25 45 2 17-60 74 16-26 54-136 76Q20 78 28 16'
+const FUNNEL_PATH = 'M5 60H45Q8 50 45 20l5-20H0L5 20Q42 50 5 60'
 const FUNNEL_WIDTH = 400 // 漏斗顶部宽度
 const FUNNEL_HEIGHT = 300 // 漏斗高度
 const FUNNEL_TOP_Y = 50 // 漏斗顶部Y坐标
@@ -70,7 +72,7 @@ function createFunnel(p5: P5CanvasInstance): Matter.Body[] {
   document.body.appendChild(svg)
 
   // 将 SVG 路径转换为顶点数组
-  // 第二个参数是采样点数量，数值越大曲线越平滑
+  // 第二个参数是采样长度！数值越小曲线越平滑
   const vertices = Svg.pathToVertices(path, 3)
 
   // 从 DOM 中移除临时 SVG
@@ -99,6 +101,18 @@ function createFunnel(p5: P5CanvasInstance): Matter.Body[] {
 
   // 缩放刚体以匹配设计尺寸
   Body.scale(funnel, scaleFactor, scaleFactor)
+
+  // 保存原始顶点的缩放版本用于渲染外轮廓
+  // 需要考虑刚体的位置偏移
+  const centerOffset = {
+    x: funnel.position.x - centerX,
+    y: funnel.position.y - (topY + FUNNEL_HEIGHT / 2)
+  }
+
+  funnelOutlineVertices = vertices.map(v => ({
+    x: centerX + centerOffset.x + (v.x - vertices[0].x) * scaleFactor,
+    y: topY + FUNNEL_HEIGHT / 2 + centerOffset.y + (v.y - vertices[0].y) * scaleFactor
+  }))
 
   return [funnel]
 }
@@ -215,19 +229,17 @@ function draw(p5: P5CanvasInstance) {
   p5.noFill()
 
   funnelBodies.forEach((body) => {
-    // 如果刚体被分解成多个部分（parts），需要渲染所有部分
-    if (body.parts && body.parts.length > 1) {
+    // Debug 模式：显示分解后的各个凸多边形部分
+    if (debugMode && body.parts && body.parts.length > 1) {
       // 跳过第一个 part（它是父刚体本身）
       for (let i = 1; i < body.parts.length; i++) {
         const part = body.parts[i]
         p5.push()
-
-        // Debug 模式：用不同颜色显示每个分解的部分
-        if (debugMode) {
-          const hue = (i * 360 / body.parts.length) % 360
-          p5.fill(hue, 50, 90, 30)
-        }
-
+        const hue = (i * 360 / body.parts.length) % 360
+        p5.colorMode(p5.HSB)
+        p5.fill(hue, 50, 90, 30)
+        p5.stroke(hue, 80, 60)
+        p5.strokeWeight(1)
         p5.beginShape()
         part.vertices.forEach((vertex) => {
           p5.vertex(vertex.x, vertex.y)
@@ -235,18 +247,17 @@ function draw(p5: P5CanvasInstance) {
         p5.endShape(p5.CLOSE)
         p5.pop()
       }
-    } else {
-      // 简单刚体，直接渲染
-      p5.push()
-      p5.translate(body.position.x, body.position.y)
-      p5.rotate(body.angle)
+    }
 
-      const vertices = body.vertices
+    // 绘制外轮廓（使用保存的原始顶点）
+    if (funnelOutlineVertices.length > 0) {
+      p5.push()
+      p5.stroke(0)
+      p5.strokeWeight(2)
+      p5.noFill()
       p5.beginShape()
-      vertices.forEach((vertex) => {
-        const localX = vertex.x - body.position.x
-        const localY = vertex.y - body.position.y
-        p5.vertex(localX, localY)
+      funnelOutlineVertices.forEach((vertex) => {
+        p5.vertex(vertex.x, vertex.y)
       })
       p5.endShape(p5.CLOSE)
       p5.pop()
