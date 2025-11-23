@@ -4,6 +4,7 @@ import { ReactP5Wrapper, type P5CanvasInstance } from '@p5-wrapper/react'
 import { useEffect } from 'react'
 import Matter from 'matter-js'
 import './pathseg.js'
+// @ts-expect-error - poly-decomp 没有类型定义
 import decomp from 'poly-decomp'
 
 // Matter.js 模块
@@ -70,15 +71,14 @@ function createFunnel(p5: P5CanvasInstance): Matter.Body[] {
 
   // 将 SVG 路径转换为顶点数组
   // 第二个参数是采样点数量，数值越大曲线越平滑
-  const vertices = Svg.pathToVertices(path, 1)
-  console.log(vertices)
+  const vertices = Svg.pathToVertices(path, 3)
 
   // 从 DOM 中移除临时 SVG
   document.body.removeChild(svg)
 
   // 使用顶点创建静态刚体
-  // 需要缩放和定位漏斗
-  const scaleFactor = 1 // 放大路径
+  // flagInternal 参数设为 true 会自动将凹多边形分解为多个凸多边形
+  const scaleFactor = 3 // 放大路径
   const funnel = Bodies.fromVertices(
     centerX,
     topY + FUNNEL_HEIGHT / 2,
@@ -92,7 +92,9 @@ function createFunnel(p5: P5CanvasInstance): Matter.Body[] {
         lineWidth: 2
       }
     },
-    true // flagInternal - 自动调整位置
+    true, // flagInternal - 自动调整位置
+    0.01, // removeCollinear threshold
+    0.01 // minimumArea threshold
   )
 
   // 缩放刚体以匹配设计尺寸
@@ -213,19 +215,42 @@ function draw(p5: P5CanvasInstance) {
   p5.noFill()
 
   funnelBodies.forEach((body) => {
-    p5.push()
-    p5.translate(body.position.x, body.position.y)
-    p5.rotate(body.angle)
+    // 如果刚体被分解成多个部分（parts），需要渲染所有部分
+    if (body.parts && body.parts.length > 1) {
+      // 跳过第一个 part（它是父刚体本身）
+      for (let i = 1; i < body.parts.length; i++) {
+        const part = body.parts[i]
+        p5.push()
 
-    const vertices = body.vertices
-    p5.beginShape()
-    vertices.forEach((vertex) => {
-      const localX = vertex.x - body.position.x
-      const localY = vertex.y - body.position.y
-      p5.vertex(localX, localY)
-    })
-    p5.endShape(p5.CLOSE)
-    p5.pop()
+        // Debug 模式：用不同颜色显示每个分解的部分
+        if (debugMode) {
+          const hue = (i * 360 / body.parts.length) % 360
+          p5.fill(hue, 50, 90, 30)
+        }
+
+        p5.beginShape()
+        part.vertices.forEach((vertex) => {
+          p5.vertex(vertex.x, vertex.y)
+        })
+        p5.endShape(p5.CLOSE)
+        p5.pop()
+      }
+    } else {
+      // 简单刚体，直接渲染
+      p5.push()
+      p5.translate(body.position.x, body.position.y)
+      p5.rotate(body.angle)
+
+      const vertices = body.vertices
+      p5.beginShape()
+      vertices.forEach((vertex) => {
+        const localX = vertex.x - body.position.x
+        const localY = vertex.y - body.position.y
+        p5.vertex(localX, localY)
+      })
+      p5.endShape(p5.CLOSE)
+      p5.pop()
+    }
   })
   p5.pop()
 
