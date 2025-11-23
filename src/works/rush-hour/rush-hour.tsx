@@ -381,6 +381,14 @@ function draw(p5: P5CanvasInstance) {
       p5.pop()
     }
 
+    // 获取球体半径
+    const radius = ball.circleRadius || 20
+
+    // 根据球体半径动态设置字体大小
+    // 字体大小约为半径的 1.5 倍，确保文字能适应球体大小
+    const fontSize = radius * 1.5
+    p5.textSize(fontSize)
+
     // "人"字随球体旋转
     p5.text('人', 0, 0)
     p5.pop()
