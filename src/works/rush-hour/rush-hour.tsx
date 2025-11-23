@@ -28,14 +28,14 @@ let balls: Matter.Body[] = []
 // 地形刚体
 let funnelBodies: Matter.Body[] = []
 let groundBodies: Matter.Body[] = []
-// 保存漏斗的原始顶点用于渲染外轮廓
-let funnelOutlineVertices: Array<{ x: number, y: number }> = []
+// 保存漏斗的原始顶点用于渲染外轮廓（每个路径一个数组）
+let funnelOutlineVertices: Array<Array<{ x: number, y: number }>> = []
 
 // 生成球体的计时器
 let nextBallTime = 0
 
 // 漏斗配置
-const FUNNEL_PATH = 'M5 60H45Q8 50 45 20l5-20H0L5 20Q42 50 5 60'
+const FUNNEL_PATHS = ['M1 1Q48 33 8 40L1 1']
 const FUNNEL_WIDTH = 400 // 漏斗顶部宽度
 const FUNNEL_HEIGHT = 300 // 漏斗高度
 const FUNNEL_TOP_Y = 50 // 漏斗顶部Y坐标
@@ -63,28 +63,31 @@ function createFunnel(p5: P5CanvasInstance): Matter.Body[] {
   const svgNS = 'http://www.w3.org/2000/svg'
   const svg = document.createElementNS(svgNS, 'svg')
   const path = document.createElementNS(svgNS, 'path')
-
-  // 设置 SVG 路径
-  path.setAttribute('d', FUNNEL_PATH)
+  const vertices: Matter.Vector[][] = []
   svg.appendChild(path)
 
   // 临时添加到 DOM 中（pathToVertices 需要）
   document.body.appendChild(svg)
 
-  // 将 SVG 路径转换为顶点数组
-  // 第二个参数是采样长度！数值越小曲线越平滑
-  const vertices = Svg.pathToVertices(path, 3)
+  for (const funnelPath of FUNNEL_PATHS) {
+    // 设置 SVG 路径
+    path.setAttribute('d', funnelPath)
+
+    // 将 SVG 路径转换为顶点数组
+    // 第二个参数是采样长度！数值越小曲线越平滑
+    vertices.push(Svg.pathToVertices(path, 1))
+  }
 
   // 从 DOM 中移除临时 SVG
   document.body.removeChild(svg)
 
   // 使用顶点创建静态刚体
   // flagInternal 参数设为 true 会自动将凹多边形分解为多个凸多边形
-  const scaleFactor = 10 // 放大路径
+  const scaleFactor = 5 // 放大路径
   const funnel = Bodies.fromVertices(
     centerX,
     topY + FUNNEL_HEIGHT / 2,
-    [vertices],
+    vertices,
     {
       isStatic: true,
       friction: 0.5,
@@ -99,25 +102,28 @@ function createFunnel(p5: P5CanvasInstance): Matter.Body[] {
     0.01 // minimumArea threshold
   )
 
-  // 先计算原始顶点的质心（用于缩放中心）
-  const originalCentroid = {
-    x: vertices.reduce((sum, v) => sum + v.x, 0) / vertices.length,
-    y: vertices.reduce((sum, v) => sum + v.y, 0) / vertices.length
-  }
-
   // 缩放刚体以匹配设计尺寸
   Body.scale(funnel, scaleFactor, scaleFactor)
 
-  // 计算缩放后的外轮廓顶点（相对于刚体的最终位置）
-  funnelOutlineVertices = vertices.map((v) => {
-    // 相对于原始质心的偏移
-    const offsetX = v.x - originalCentroid.x
-    const offsetY = v.y - originalCentroid.y
-    // 缩放后相对于刚体位置的世界坐标
-    return {
-      x: funnel.position.x + offsetX * scaleFactor,
-      y: funnel.position.y + offsetY * scaleFactor
+  // 计算每个路径的外轮廓顶点
+  funnelOutlineVertices = vertices.map((pathVertices) => {
+    // 计算该路径顶点的质心
+    const pathCentroid = {
+      x: pathVertices.reduce((sum, v) => sum + v.x, 0) / pathVertices.length,
+      y: pathVertices.reduce((sum, v) => sum + v.y, 0) / pathVertices.length
     }
+
+    // 计算缩放后的外轮廓顶点（相对于刚体的最终位置）
+    return pathVertices.map((v) => {
+      // 相对于路径质心的偏移
+      const offsetX = v.x - pathCentroid.x
+      const offsetY = v.y - pathCentroid.y
+      // 缩放后相对于刚体位置的世界坐标
+      return {
+        x: funnel.position.x + offsetX * scaleFactor,
+        y: funnel.position.y + offsetY * scaleFactor
+      }
+    })
   })
 
   return [funnel]
@@ -235,18 +241,20 @@ function draw(p5: P5CanvasInstance) {
   p5.noFill()
 
   funnelBodies.forEach((body) => {
-    // 绘制外轮廓（使用保存的原始顶点）
+    // 绘制所有外轮廓（使用保存的原始顶点）
     if (funnelOutlineVertices.length > 0) {
-      p5.push()
-      p5.stroke(0)
-      p5.strokeWeight(2)
-      p5.noFill()
-      p5.beginShape()
-      funnelOutlineVertices.forEach((vertex) => {
-        p5.vertex(vertex.x, vertex.y)
+      funnelOutlineVertices.forEach((pathVertices) => {
+        p5.push()
+        p5.stroke(0)
+        p5.strokeWeight(2)
+        p5.noFill()
+        p5.beginShape()
+        pathVertices.forEach((vertex) => {
+          p5.vertex(vertex.x, vertex.y)
+        })
+        p5.endShape(p5.CLOSE)
+        p5.pop()
       })
-      p5.endShape(p5.CLOSE)
-      p5.pop()
     }
 
     // Debug 模式：显示分解后的各个凸多边形部分（绘制在外轮廓之上）
@@ -272,8 +280,10 @@ function draw(p5: P5CanvasInstance) {
       p5.push()
       p5.fill(255, 0, 0)
       p5.noStroke()
-      funnelOutlineVertices.forEach((vertex) => {
-        p5.circle(vertex.x, vertex.y, 3)
+      funnelOutlineVertices.forEach((pathVertices) => {
+        pathVertices.forEach((vertex) => {
+          p5.circle(vertex.x, vertex.y, 3)
+        })
       })
       p5.pop()
     }
