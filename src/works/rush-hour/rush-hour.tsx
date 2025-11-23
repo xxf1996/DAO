@@ -1,18 +1,14 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { useP5 } from '@/hooks/p5'
 import { ReactP5Wrapper, type P5CanvasInstance } from '@p5-wrapper/react'
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import Matter from 'matter-js'
 
 // Matter.js 模块
 const Engine = Matter.Engine
-const Render = Matter.Render
 const Runner = Matter.Runner
 const Bodies = Matter.Bodies
 const Composite = Matter.Composite
-const Body = Matter.Body
-const Vertices = Matter.Vertices
-const Svg = Matter.Svg
 
 // 物理引擎实例
 let engine: Matter.Engine
@@ -45,6 +41,9 @@ const GROUND_THICKNESS = 20 // 地面厚度
 const BALL_MIN_RADIUS = 15
 const BALL_MAX_RADIUS = 25
 const BALL_SPAWN_INTERVAL = 800 // 生成间隔（毫秒）
+
+// Debug 模式
+let debugMode = false
 
 // 创建漏斗形状的静态刚体
 function createFunnel(p5: P5CanvasInstance): Matter.Body[] {
@@ -82,7 +81,6 @@ function createFunnel(p5: P5CanvasInstance): Matter.Body[] {
 // 创建带空缺的地面
 function createGround(p5: P5CanvasInstance): Matter.Body[] {
   const grounds: Matter.Body[] = []
-  const centerX = p5.width / 2
   const totalWidth = p5.width
   const segmentCount = Math.ceil(totalWidth / (GROUND_SEGMENT_WIDTH + GROUND_GAP_WIDTH))
 
@@ -117,7 +115,9 @@ function createBall(p5: P5CanvasInstance): Matter.Body {
   const ball = Bodies.circle(x, y, radius, {
     restitution: 0.6,
     friction: 0.1,
-    density: 0.001
+    density: 0.001,
+    // 启用空气摩擦力，使球体会旋转
+    frictionAir: 0.01
   })
 
   return ball
@@ -138,6 +138,12 @@ function setup(p5: P5CanvasInstance) {
   p5.createCanvas(window.innerWidth, window.innerHeight)
   p5.textAlign(p5.CENTER, p5.CENTER)
   p5.textSize(20)
+
+  // 检查 URL 是否包含 debug 参数
+  if (typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search)
+    debugMode = urlParams.has('debug')
+  }
 
   // 创建 Matter.js 引擎
   engine = Engine.create()
@@ -231,6 +237,47 @@ function draw(p5: P5CanvasInstance) {
   balls.forEach((ball) => {
     p5.push()
     p5.translate(ball.position.x, ball.position.y)
+
+    // Debug 模式：显示球体边框和方向向量（姿态/旋转）
+    if (debugMode) {
+      // 获取球体半径
+      const radius = ball.circleRadius || 20
+
+      // 绘制球体边框
+      p5.push()
+      p5.noFill()
+      p5.stroke(100, 100, 255, 150) // 半透明蓝色
+      p5.strokeWeight(1)
+      p5.circle(0, 0, radius * 2)
+      p5.pop()
+
+      // 绘制方向向量（显示球体的旋转角度/姿态）
+      p5.push()
+      p5.stroke(255, 0, 0) // 红色
+      p5.strokeWeight(2)
+      // 使用球体的角度（angle 属性）来显示方向
+      const endX = Math.cos(ball.angle) * radius
+      const endY = Math.sin(ball.angle) * radius
+      p5.line(0, 0, endX, endY)
+
+      // 在方向向量末端绘制一个小圆点
+      p5.fill(255, 0, 0)
+      p5.noStroke()
+      p5.circle(endX, endY, 4)
+      p5.pop()
+
+      // 显示角度和角速度信息
+      p5.push()
+      p5.fill(0)
+      p5.noStroke()
+      p5.textSize(10)
+      const angleDegrees = (ball.angle * 180 / Math.PI).toFixed(0)
+      const angularVelocity = ball.angularVelocity.toFixed(2)
+      p5.text(`角度: ${angleDegrees}°`, 0, radius + 15)
+      p5.text(`角速度: ${angularVelocity}`, 0, radius + 28)
+      p5.pop()
+    }
+
     // 文字保持直立，不随球体旋转
     p5.text('人', 0, 0)
     p5.pop()
