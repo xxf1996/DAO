@@ -59,7 +59,9 @@ const SIDE_WALL_HEIGHT = 200 // 两侧挡板高度
 // 传送带配置
 const CONVEYOR_Y_OFFSET = 100 // 传送带相对地面的Y轴偏移
 const CONVEYOR_WHEEL_RADIUS = 15 // 滚轮半径
-const CONVEYOR_SPEED = 0.001 // 传送带旋转速度（弧度/帧）
+const CONVEYOR_BELT_SPEED = 12 // 传送带表面速度（像素/帧），向左移动
+const CONVEYOR_WHEEL_ROTATION_SPEED = CONVEYOR_BELT_SPEED / CONVEYOR_WHEEL_RADIUS * 0.1 // 滚轮旋转速度（弧度/帧）
+const CONVEYOR_FORCE_MULTIPLIER = 0.0002 // 传送带对球体施加的力系数
 
 // 球体配置
 const BALL_MIN_RADIUS = 6
@@ -310,8 +312,8 @@ function createConveyor(p5: P5CanvasInstance): {
     beltHeight,
     {
       isStatic: true,
-      friction: 2, // 高摩擦力，模拟传送带效果
-      frictionStatic: 2
+      friction: 0.5, // 适中的摩擦力
+      frictionStatic: 0.5
     }
   )
 
@@ -522,16 +524,15 @@ function draw(p5: P5CanvasInstance) {
   updateTrapDoors(p5)
 
   // 更新传送带物理效果
-  // 手动旋转滚轮（仅用于视觉效果，不影响物理）
+  // 手动旋转滚轮（根据传送带速度计算旋转角度）
   conveyorWheels.forEach((wheel) => {
-    // 手动设置角度（逆时针旋转）
-    Matter.Body.setAngle(wheel, wheel.angle - CONVEYOR_SPEED)
+    // 逆时针旋转：角速度 = 线速度 / 半径
+    Matter.Body.setAngle(wheel, wheel.angle - CONVEYOR_WHEEL_ROTATION_SPEED)
   })
 
   // 给接触传送带的球体施加向左的力（模拟传送带效果）
   if (conveyorBelt) {
     const belt = conveyorBelt
-    const conveyorForce = 0.0005 // 向左的力
     balls.forEach((ball) => {
       // 检查球体是否在传送带附近
       const beltTop = belt.position.y - 3
@@ -548,7 +549,9 @@ function draw(p5: P5CanvasInstance) {
         && ball.position.x >= beltLeft
         && ball.position.x <= beltRight
       ) {
-        // 施加向左的力
+        // 根据球体质量施加力（F = ma，这里简化为 F = m * speed * coefficient）
+        const ballMass = ball.mass
+        const conveyorForce = ballMass * CONVEYOR_BELT_SPEED * CONVEYOR_FORCE_MULTIPLIER
         Matter.Body.applyForce(ball, ball.position, { x: -conveyorForce, y: 0 })
       }
     })

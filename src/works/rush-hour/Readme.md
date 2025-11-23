@@ -37,7 +37,9 @@
 - 传送带象征着机械化的生活节奏和循环往复的命运
 - 不断生成的新球体象征着永不停歇的时间流动
 
-## 技术细节：凹多边形渲染
+## 技术细节
+
+### 凹多边形渲染
 
 Matter.js 使用 `poly-decomp` 将凹多边形自动分解为多个凸多边形（parts）来处理物理碰撞。关键点：
 
@@ -47,9 +49,21 @@ Matter.js 使用 `poly-decomp` 将凹多边形自动分解为多个凸多边形�
    - 视觉渲染只绘制原始 SVG 路径的外轮廓
    - 这样既保证了物理准确性，又避免了显示内部分割线
 3. **Debug 模式可视化**：启用 debug 模式可以看到分解后的各个凸多边形部分（用不同颜色填充）
-4. **为什么之前显示错误**：
-   - 碰撞检测正常 → 物理引擎正确分解了形状
-   - 渲染错误 → 只绘制了主体顶点，没有绘制分解后的各个部分
+
+### 传送带速度控制
+
+传送带的速度通过 `CONVEYOR_BELT_SPEED` 参数统一控制：
+
+1. **滚轮旋转速度**：根据公式 `角速度 = 线速度 / 半径` 自动计算
+   - `CONVEYOR_WHEEL_ROTATION_SPEED = CONVEYOR_BELT_SPEED / CONVEYOR_WHEEL_RADIUS`
+   
+2. **对球体的作用力**：根据球体质量和传送带速度计算
+   - `Force = ball.mass × CONVEYOR_BELT_SPEED × CONVEYOR_FORCE_MULTIPLIER`
+   - 这确保了不同大小的球体都能获得合理的推力
+   
+3. **调节建议**：
+   - 增大 `CONVEYOR_BELT_SPEED` 会同时加快滚轮旋转和传送速度
+   - 调节 `CONVEYOR_FORCE_MULTIPLIER` 可以微调传送效果的强度
 
 ## 参数配置
 
@@ -66,7 +80,8 @@ Matter.js 使用 `poly-decomp` 将凹多边形自动分解为多个凸多边形�
 - `TRAP_DOOR_OPEN_DURATION`: 活动板保持打开的时长（毫秒）
 - `CONVEYOR_Y_OFFSET`: 传送带相对地面的Y轴偏移（像素）
 - `CONVEYOR_WHEEL_RADIUS`: 传送带滚轮半径（像素）
-- `CONVEYOR_SPEED`: 传送带旋转速度（弧度/帧）
+- `CONVEYOR_BELT_SPEED`: 传送带表面速度（像素/帧），控制传送带向左移动的速度
+- `CONVEYOR_FORCE_MULTIPLIER`: 传送带对球体施加的力系数，调节传送效果强度
 - `BALL_MIN_RADIUS` / `BALL_MAX_RADIUS`: 球体半径范围
 - `BALL_SPAWN_INTERVAL`: 球体生成间隔（毫秒）
 
