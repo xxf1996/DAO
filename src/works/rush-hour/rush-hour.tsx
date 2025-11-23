@@ -47,8 +47,8 @@ const GROUND_WIDTH_RATIO = 0.9 // 地面宽度占屏幕宽度的比例
 const GROUND_THICKNESS = 10 // 地面厚度
 const TRAP_DOOR_COUNT = 8 // 活动板数量
 const TRAP_DOOR_WIDTH_RATIO = 0.4 // 活动板宽度比例（相对于之前的分配宽度）
-const TRAP_DOOR_OPEN_INTERVAL = 2000 // 活动板打开间隔（毫秒）
-const TRAP_DOOR_OPEN_DURATION = 1000 // 活动板打开持续时间（毫秒）
+const TRAP_DOOR_OPEN_INTERVAL = 15000 // 活动板打开间隔（毫秒）
+const TRAP_DOOR_OPEN_DURATION = 5000 // 活动板打开持续时间（毫秒）
 const TRAP_DOOR_SLIDE_DISTANCE = 50 // 活动板向左滑动距离（像素）
 const SIDE_WALL_HEIGHT = 200 // 两侧挡板高度
 
