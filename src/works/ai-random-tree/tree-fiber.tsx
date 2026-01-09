@@ -1,7 +1,7 @@
-import { useRef, useEffect, useState } from 'react'
+import { useMemo, useRef, useEffect, useState } from 'react'
 import { folder, useControls } from 'leva'
 import * as THREE from 'three'
-import { Canvas, useFrame, useThree } from '@react-three/fiber' // NOTICE: v9版本大概率不兼容react18！
+import { Canvas, createPortal, useFrame, useThree } from '@react-three/fiber' // NOTICE: v9版本大概率不兼容react18！
 import { OrbitControls } from '@react-three/drei'
 import './index.scss'
 import type { TreeNode } from './tree.worker'
@@ -11,6 +11,8 @@ import branchVertexShader from './shaders/branch.vert?raw'
 import branchFragmentShader from './shaders/branch.frag?raw'
 import leafVertexShader from './shaders/leaf.vert?raw'
 import leafFragmentShader from './shaders/leaf.frag?raw'
+import watercolorPostVert from './shaders/watercolor-post.vert?raw'
+import watercolorPostFrag from './shaders/watercolor-post.frag?raw'
 import { useMultiLangText } from '@/hooks/text'
 
 // 创建共享材质
@@ -170,31 +172,117 @@ function Branch({ node, season }: { node: TreeNode, season: number }) {
   )
 }
 
-// Scene组件 - 负责渲染场景内容
-function Scene({ treeStructure, season }: { treeStructure: TreeNode | null, season: number }) {
-  // const { camera } = useThree()
-  // useEffect(() => {
-  //   camera.lookAt(new THREE.Vector3(0, 800, 0))
-  //   console.log(camera)
-  // })
+function MainSceneContents({ treeStructure, season }: { treeStructure: TreeNode | null, season: number }) {
   return (
     <>
-      <OrbitControls
-        enablePan={true}
-        enableZoom={true}
-        enableRotate={true}
-        minDistance={100}
-        maxDistance={1000}
-        minPolarAngle={0}
-        maxPolarAngle={Math.PI / 2}
-        target={new THREE.Vector3(0, 300, 0)}
-      />
       <ambientLight intensity={1.0} />
       <pointLight position={[100, 100, 100]} intensity={1.5} />
       <directionalLight position={[-50, -200, 100]} intensity={0.8} />
       {/* 为Branch组件添加一个基于时间戳的key，确保每次生成新的树结构时都能触发绽放动画。 */}
       {treeStructure && <Branch key={Date.now()} node={treeStructure} season={season} />}
     </>
+  )
+}
+
+function WatercolorPost({
+  inputScene,
+  controls
+}: {
+  inputScene: THREE.Scene
+  controls: {
+    paperScale: number
+    paperStrength: number
+    granulation: number
+    edgeDarken: number
+    bleed: number
+    wash: number
+    warp: number
+    bloom: number
+    vignette: number
+  }
+}) {
+  const { gl, camera, scene, size, clock } = useThree()
+  const quadRef = useRef<THREE.Mesh | null>(null)
+
+  const renderTarget = useMemo(() => {
+    const rt = new THREE.WebGLRenderTarget(size.width, size.height, {
+      format: THREE.RGBAFormat,
+      type: THREE.UnsignedByteType,
+      depthBuffer: true,
+      stencilBuffer: false
+    })
+    rt.texture.name = 'ai-random-tree-watercolor-input'
+    return rt
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const postMaterial = useMemo(() => {
+    return new THREE.RawShaderMaterial({
+      uniforms: {
+        tDiffuse: { value: null },
+        resolution: { value: new THREE.Vector2(1, 1) },
+        time: { value: 0 },
+        paperScale: { value: controls.paperScale },
+        paperStrength: { value: controls.paperStrength },
+        granulation: { value: controls.granulation },
+        edgeDarken: { value: controls.edgeDarken },
+        bleed: { value: controls.bleed },
+        wash: { value: controls.wash },
+        warp: { value: controls.warp },
+        bloom: { value: controls.bloom },
+        vignette: { value: controls.vignette }
+      },
+      vertexShader: watercolorPostVert,
+      fragmentShader: watercolorPostFrag,
+      depthTest: false,
+      depthWrite: false
+    })
+  }, [])
+
+  // Keep RT and uniforms in sync with canvas size and UI controls
+  useEffect(() => {
+    renderTarget.setSize(size.width, size.height)
+    postMaterial.uniforms.resolution.value.set(size.width, size.height)
+  }, [renderTarget, postMaterial, size.width, size.height])
+
+  useFrame(() => {
+    // Render the main scene into RT
+    gl.setClearColor(new THREE.Color('#F5F5F0'), 1.0)
+    gl.setRenderTarget(renderTarget)
+    gl.clear(true, true, true)
+    gl.render(inputScene, camera)
+    gl.setRenderTarget(null)
+
+    // Update post uniforms
+    postMaterial.uniforms.tDiffuse.value = renderTarget.texture
+    postMaterial.uniforms.time.value = clock.getElapsedTime()
+    postMaterial.uniforms.paperScale.value = controls.paperScale
+    postMaterial.uniforms.paperStrength.value = controls.paperStrength
+    postMaterial.uniforms.granulation.value = controls.granulation
+    postMaterial.uniforms.edgeDarken.value = controls.edgeDarken
+    postMaterial.uniforms.bleed.value = controls.bleed
+    postMaterial.uniforms.wash.value = controls.wash
+    postMaterial.uniforms.warp.value = controls.warp
+    postMaterial.uniforms.bloom.value = controls.bloom
+    postMaterial.uniforms.vignette.value = controls.vignette
+
+    // Ensure the quad uses latest material (ref safety)
+    if (quadRef.current) {
+      quadRef.current.material = postMaterial
+    }
+
+    // IMPORTANT:
+    // When using a render priority (>0), R3F will stop auto-rendering.
+    // So we must render the root scene manually, otherwise the screen is blank.
+    gl.clear(true, true, true)
+    gl.render(scene, camera)
+  }, 1)
+
+  return (
+    <mesh ref={quadRef} frustumCulled={false} renderOrder={999}>
+      <planeGeometry args={[2, 2]} />
+      <primitive object={postMaterial} attach="material" />
+    </mesh>
   )
 }
 
@@ -209,6 +297,17 @@ function TreeFiber() {
     maxLevel: { value: 6, min: 3, max: 10, step: 1 }, // 最大层级
     maxLeafCount: { value: 360, min: 10, max: 600, step: 10 }, // 最大叶片数
     season: { value: 0.3, min: 0, max: 1, step: 0.01 }, // 季节变化
+    水彩后处理: folder({
+      paperScale: { value: 7.8, min: 2, max: 16, step: 0.1 },
+      paperStrength: { value: 0.9, min: 0, max: 1, step: 0.01 },
+      granulation: { value: 0.75, min: 0, max: 1, step: 0.01 },
+      edgeDarken: { value: 0.9, min: 0, max: 1, step: 0.01 },
+      bleed: { value: 0.85, min: 0, max: 1, step: 0.01 },
+      wash: { value: 0.65, min: 0, max: 1, step: 0.01 },
+      warp: { value: 0.65, min: 0, max: 1, step: 0.01 },
+      bloom: { value: 0.55, min: 0, max: 1, step: 0.01 },
+      vignette: { value: 0.25, min: 0, max: 1, step: 0.01 }
+    }),
     // 相机操作说明
     相机操作: folder({
       操作说明: {
@@ -226,6 +325,8 @@ function TreeFiber() {
   const treeStructure = useRef<TreeNode | null>(null)
   const workerRef = useRef<Worker | null>(null)
   const debounceTimerRef = useRef<number | null>(null)
+  const mainScene = useMemo(() => new THREE.Scene(), [])
+  const wc = ((controls as any)['水彩后处理'] ?? controls) as any
 
   useEffect(() => {
     // 创建Worker实例
@@ -336,7 +437,38 @@ function TreeFiber() {
         dpr={[1, 2]} // 适配不同设备像素比
         performance={{ min: 0.5 }} // 允许在性能不足时降低渲染质量
       >
-        <Scene treeStructure={treeStructure.current} season={controls.season} />
+        <OrbitControls
+          enablePan={true}
+          enableZoom={true}
+          enableRotate={true}
+          minDistance={100}
+          maxDistance={1000}
+          minPolarAngle={0}
+          maxPolarAngle={Math.PI / 2}
+          target={new THREE.Vector3(0, 300, 0)}
+        />
+
+        {/* 把“真实场景内容”渲染到离屏 mainScene */}
+        {createPortal(
+          <MainSceneContents treeStructure={treeStructure.current} season={controls.season} />,
+          mainScene
+        )}
+
+        {/* 在屏幕上用后处理 shader 显示 mainScene */}
+        <WatercolorPost
+          inputScene={mainScene}
+          controls={{
+            paperScale: wc.paperScale ?? 7.0,
+            paperStrength: wc.paperStrength ?? 0.7,
+            granulation: wc.granulation ?? 0.55,
+            edgeDarken: wc.edgeDarken ?? 0.65,
+            bleed: wc.bleed ?? 0.55,
+            wash: wc.wash ?? 0.35,
+            warp: wc.warp ?? 0.65,
+            bloom: wc.bloom ?? 0.55,
+            vignette: wc.vignette ?? 0.35
+          }}
+        />
       </Canvas>
     </div>
   )
